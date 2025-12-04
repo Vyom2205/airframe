@@ -113,21 +113,22 @@ class DateCalculator {
     
     private func handleDateDifference(_ input: String) -> String? {
         let pattern = try? NSRegularExpression(
-            pattern: "(\\d{4})-(\\d{2})-(\\d{2})\\s*-\\s*(\\d{4})-(\\d{2})-(\\d{2})",
+            pattern: "(\\d{4}-\\d{2}-\\d{2})\\s*-\\s*(\\d{4}-\\d{2}-\\d{2})",
             options: []
         )
         
         guard let regex = pattern,
-              let match = regex.firstMatch(in: input, range: NSRange(input.startIndex..., in: input)) else {
+              let match = regex.firstMatch(in: input, range: NSRange(input.startIndex..., in: input)),
+              let date1Range = Range(match.range(at: 1), in: input),
+              let date2Range = Range(match.range(at: 2), in: input) else {
             return nil
         }
         
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy-MM-dd"
         
-        guard let date1Range = Range(match.range(at: 0), in: input) else { return nil }
-        let dateString1 = String(input[date1Range].prefix(10))
-        let dateString2 = String(input[date1Range].suffix(10))
+        let dateString1 = String(input[date1Range])
+        let dateString2 = String(input[date2Range])
         
         guard let date1 = dateFormatter.date(from: dateString1),
               let date2 = dateFormatter.date(from: dateString2) else {

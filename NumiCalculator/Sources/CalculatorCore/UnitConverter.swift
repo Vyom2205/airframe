@@ -1,6 +1,12 @@
 import Foundation
 
 class NumiUnitConverter {
+    // Static regex for better performance
+    private static let conversionPattern = try? NSRegularExpression(
+        pattern: "(\\d+(?:\\.\\d+)?)\\s*([a-z]+)\\s+(?:in|to)\\s+([a-z]+)",
+        options: .caseInsensitive
+    )
+    
     func evaluate(_ input: String, variables: [String: Double]) -> String? {
         var expr = input.lowercased()
         
@@ -9,13 +15,8 @@ class NumiUnitConverter {
             expr = expr.replacingOccurrences(of: name.lowercased(), with: String(value))
         }
         
-        // Parse conversion pattern: "X unit1 in/to unit2"
-        let conversionPattern = try? NSRegularExpression(
-            pattern: "(\\d+(?:\\.\\d+)?)\\s*([a-z]+)\\s+(?:in|to)\\s+([a-z]+)",
-            options: .caseInsensitive
-        )
-        
-        guard let regex = conversionPattern,
+        // Parse conversion pattern using static regex
+        guard let regex = NumiUnitConverter.conversionPattern,
               let match = regex.firstMatch(in: expr, range: NSRange(expr.startIndex..., in: expr)) else {
             return nil
         }

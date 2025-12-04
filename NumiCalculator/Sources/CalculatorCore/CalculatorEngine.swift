@@ -6,6 +6,12 @@ class CalculatorEngine {
     private let currencyConverter = CurrencyConverter()
     private let dateCalculator = DateCalculator()
     
+    // Static regex for better performance
+    private static let percentOfPattern = try? NSRegularExpression(
+        pattern: "(\\d+(?:\\.\\d+)?)\\s*%\\s*of\\s*(\\d+(?:\\.\\d+)?)",
+        options: .caseInsensitive
+    )
+    
     func evaluate(_ line: String) -> EvaluationResult {
         let trimmedLine = line.trimmingCharacters(in: .whitespaces)
         
@@ -78,9 +84,8 @@ class CalculatorEngine {
     private func handleNaturalLanguage(_ expression: String) -> String {
         var expr = expression
         
-        // Handle "X% of Y" pattern
-        let percentOfPattern = try? NSRegularExpression(pattern: "(\\d+(?:\\.\\d+)?)\\s*%\\s*of\\s*(\\d+(?:\\.\\d+)?)", options: .caseInsensitive)
-        if let regex = percentOfPattern {
+        // Handle "X% of Y" pattern using static regex
+        if let regex = CalculatorEngine.percentOfPattern {
             let range = NSRange(expr.startIndex..., in: expr)
             if let match = regex.firstMatch(in: expr, range: range) {
                 if let percentRange = Range(match.range(at: 1), in: expr),

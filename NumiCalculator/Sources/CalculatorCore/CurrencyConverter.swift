@@ -15,6 +15,12 @@ class CurrencyConverter {
         "mxn": 17.15
     ]
     
+    // Static regex for better performance
+    private static let conversionPattern = try? NSRegularExpression(
+        pattern: "(\\d+(?:\\.\\d+)?)\\s*([a-z]{3})\\s+(?:in|to)\\s+([a-z]{3})",
+        options: .caseInsensitive
+    )
+    
     func evaluate(_ input: String, variables: [String: Double]) -> String? {
         var expr = input.lowercased()
         
@@ -23,13 +29,8 @@ class CurrencyConverter {
             expr = expr.replacingOccurrences(of: name.lowercased(), with: String(value))
         }
         
-        // Parse currency conversion pattern: "X currency1 in/to currency2"
-        let conversionPattern = try? NSRegularExpression(
-            pattern: "(\\d+(?:\\.\\d+)?)\\s*([a-z]{3})\\s+(?:in|to)\\s+([a-z]{3})",
-            options: .caseInsensitive
-        )
-        
-        guard let regex = conversionPattern,
+        // Parse currency conversion pattern using static regex
+        guard let regex = CurrencyConverter.conversionPattern,
               let match = regex.firstMatch(in: expr, range: NSRange(expr.startIndex..., in: expr)) else {
             return nil
         }
