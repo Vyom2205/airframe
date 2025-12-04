@@ -2,14 +2,14 @@ import SwiftUI
 import CalculatorCore
 
 @main
-struct NumiCalculatorApp: App {
+struct SnapSumApp: App {
     @StateObject private var appState = AppState()
     
     var body: some Scene {
         WindowGroup {
             ContentView()
                 .environmentObject(appState)
-                .frame(minWidth: 600, minHeight: 400)
+                .frame(minWidth: 700, minHeight: 500)
         }
         .commands {
             CommandGroup(replacing: .newItem) {
@@ -19,5 +19,7 @@ struct NumiCalculatorApp: App {
                 .keyboardShortcut("n", modifiers: .command)
             }
         }
+        .windowStyle(.hiddenTitleBar)
+        .windowToolbarStyle(.unified(showsTitle: false))
     }
 }

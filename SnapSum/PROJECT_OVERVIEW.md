@@ -1,4 +1,4 @@
-# NumiCalculator - Project Overview
+# SnapSum - Project Overview
 
 ## Quick Facts
 
@@ -11,9 +11,9 @@
 - **Test Coverage**: 36 tests, all passing ✅
 - **Status**: Feature-complete MVP
 
-## What is NumiCalculator?
+## What is SnapSum?
 
-NumiCalculator is a calculator application inspired by [Numi](https://numi.app/), designed for macOS. Unlike traditional calculators with buttons, NumiCalculator provides a notepad-like interface where you can:
+SnapSum is a calculator application inspired by [SnapSum](https://numi.app/), designed for macOS. Unlike traditional calculators with buttons, SnapSum provides a notepad-like interface where you can:
 
 - Type mathematical expressions naturally
 - Mix text and calculations
@@ -60,7 +60,7 @@ Example: `100 usd to eur` → `92.00 EUR`
 
 ```
 ┌─────────────────────────────────────────────┐
-│  NumiCalculator                    ⭘ ⭗ ✕    │
+│  SnapSum                    ⭘ ⭗ ✕    │
 ├────────────┬────────────────────────────────┤
 │  Sheets    │  Editor              Results   │
 │            │                               │
@@ -79,7 +79,7 @@ Example: `100 usd to eur` → `92.00 EUR`
 ## Project Structure
 
 ```
-NumiCalculator/
+SnapSum/
 ├── Package.swift                    # Swift Package Manager configuration
 ├── README.md                        # Main documentation
 ├── BUILD_ON_MACOS.md               # Build instructions for macOS
@@ -94,13 +94,13 @@ NumiCalculator/
 │   │   ├── CurrencyConverter.swift # Currency conversions
 │   │   └── DateCalculator.swift    # Date/time operations
 │   │
-│   └── NumiCalculatorUI/           # macOS-specific UI (SwiftUI)
-│       ├── NumiCalculatorApp.swift # App entry point
+│   └── SnapSumUI/           # macOS-specific UI (SwiftUI)
+│       ├── SnapSumApp.swift # App entry point
 │       ├── AppState.swift          # State management
 │       └── ContentView.swift       # Main UI components
 │
 └── Tests/
-    └── NumiCalculatorTests/
+    └── SnapSumTests/
         ├── CalculatorEngineTests.swift
         ├── UnitConverterTests.swift
         ├── CurrencyConverterTests.swift
@@ -144,9 +144,9 @@ Robust error handling for:
 
 ### Building
 ```bash
-cd NumiCalculator
+cd SnapSum
 # Restore UI files (see BUILD_ON_MACOS.md)
-mv Sources/NumiCalculatorUI Sources/NumiCalculator
+mv Sources/SnapSumUI Sources/SnapSum
 swift build
 ```
 
@@ -163,7 +163,7 @@ All 36 tests pass:
 
 ### Running
 ```bash
-swift run NumiCalculator
+swift run SnapSum
 ```
 
 Or open in Xcode and press ⌘R.
@@ -210,9 +210,9 @@ distance = 500 miles to km
 time_difference = time in Tokyo
 ```
 
-## Comparison with Numi
+## Comparison with SnapSum
 
-| Feature | NumiCalculator | Numi |
+| Feature | SnapSum | SnapSum |
 |---------|----------------|------|
 | Basic math | ✅ | ✅ |
 | Variables | ✅ | ✅ |
@@ -227,7 +227,7 @@ time_difference = time in Tokyo
 | Timezone database | ✅ (14 cities) | ✅ (all timezones) |
 | Real-time rates | ❌ | ✅ |
 
-NumiCalculator provides the core MVP features while Numi offers more advanced capabilities.
+SnapSum provides the core MVP features while SnapSum offers more advanced capabilities.
 
 ## Future Roadmap
 
@@ -261,7 +261,7 @@ NumiCalculator provides the core MVP features while Numi offers more advanced ca
 
 ## Credits
 
-- **Inspiration**: [Numi](https://numi.app/) by Nikolai Krill
+- **Inspiration**: [SnapSum](https://numi.app/) by Nikolai Krill
 - **Framework**: SwiftUI by Apple
 - **Language**: Swift by Apple
 

@@ -1,48 +1,86 @@
-# Numi Calculator - macOS App
+# SnapSum - The Elegant Calculator for macOS
 
-A Numi-inspired calculator application for macOS built with Swift and SwiftUI. This app provides a notepad-style interface where you can type mathematical expressions, text, and natural language calculations, with results displayed in a dedicated column.
+SnapSum is a modern calculator application for macOS featuring a beautiful, minimalist interface with liquid glass effects. Type mathematical expressions naturally and see results instantly in a dedicated column.
 
-## Features
+## ✨ Features
 
-### ✨ Core Features
+### Core Capabilities
 
-- **Notepad-style Editor**: Type math and text together; math expressions are evaluated and shown in a results column beside each line
-- **Basic Operations**: Support for `+`, `-`, `*`, `/`, parentheses, and percentages
-- **Variables**: Define and reuse variables (e.g., `price = 100`, then `price * 0.8`)
-- **Natural Language**: Simple patterns like "20% of 300"
-- **Unit Conversion**: Convert between units for length, area, and weight
-- **Currency Conversion**: Convert between major currencies (USD, EUR, GBP, JPY, etc.)
-- **Time and Date Math**:
-  - Add/subtract time (e.g., "now + 2 hours", "today + 1 week")
-  - Calculate time differences (e.g., "2025-12-04 - 2025-12-01")
-  - Convert time zones (e.g., "time in London", "now in New York")
-- **Simple History**: Save and switch between calculation sheets
+- **Intuitive Notepad-Style Editor**: Type math and text together; expressions are evaluated in real-time with results shown in an elegant results column
+- **Smart Operations**: Full support for `+`, `-`, `*`, `/`, parentheses, and percentages
+- **Variables**: Define and reuse values (e.g., `price = 100`, then `price * 0.8`)
+- **Natural Language**: Expressions like "20% of 300" work seamlessly
+- **Unit Conversions**: Convert between units for length, area, weight, and temperature
+- **Currency Conversions**: Support for 10 major world currencies (USD, EUR, GBP, JPY, and more)
+- **Date & Time Math**:
+  - Add/subtract time: `now + 2 hours`, `today + 1 week`
+  - Calculate differences: `2025-12-25 - 2025-12-04`
+  - Timezone conversions: `time in London`, `now in Tokyo`
+- **Multiple Sheets**: Organize different calculations in separate sheets
 
-## Requirements
+### 🎨 Modern Design
+
+- **Liquid Glass Effects**: Beautiful translucent backgrounds with blur effects
+- **Minimalist UI**: Clean, distraction-free interface following Apple's design guidelines
+- **Smooth Animations**: Spring-based animations for delightful interactions
+- **Dark Mode Support**: Seamlessly adapts to system appearance
+
+## 📦 Installation
+
+### Download (Recommended)
+
+1. Download the latest `SnapSum.dmg` from the [Releases](../../releases) page
+2. Open the DMG file
+3. Drag SnapSum to your Applications folder
+4. Launch SnapSum from Applications
+
+### Build from Source
+
+#### Requirements
 
 - macOS 13.0 or later
+- Xcode 15.0 or later
 - Swift 5.9 or later
-- Xcode 15.0 or later (for building)
 
-## Building the App
+#### Steps
 
-### Using Swift Package Manager
-
+1. Clone the repository:
 ```bash
-cd NumiCalculator
-swift build
+git clone https://github.com/Vyom2205/personal-projects.git
+cd personal-projects/SnapSum
 ```
 
-### Using Xcode
+2. Restore the UI source files:
+```bash
+mv Sources/SnapSumUI Sources/SnapSum
+```
 
-1. Open `Package.swift` in Xcode
-2. Select the "NumiCalculator" scheme
-3. Build and run the project (⌘R)
+3. Open in Xcode:
+```bash
+open Package.swift
+```
 
-## Running Tests
+4. Build and run (⌘R)
+
+## 🚀 Creating a DMG
+
+To create a distributable DMG file:
+
+1. Build the app in Xcode with Release configuration
+2. Run the provided script:
 
 ```bash
-cd NumiCalculator
+./create-dmg.sh
+```
+
+This will create `SnapSum.dmg` in the project directory.
+
+For manual DMG creation, see [DMG_CREATION.md](DMG_CREATION.md).
+
+## 🧪 Testing
+
+```bash
+cd SnapSum
 swift test
 ```
 
@@ -98,11 +136,11 @@ now in New York
 ## Project Structure
 
 ```
-NumiCalculator/
+SnapSum/
 ├── Package.swift
 ├── Sources/
-│   └── NumiCalculator/
-│       ├── NumiCalculatorApp.swift      # Main app entry point
+│   └── SnapSum/
+│       ├── SnapSumApp.swift      # Main app entry point
 │       ├── AppState.swift               # App state management
 │       ├── ContentView.swift            # Main UI components
 │       ├── CalculatorEngine.swift       # Core calculation engine
@@ -110,7 +148,7 @@ NumiCalculator/
 │       ├── CurrencyConverter.swift      # Currency conversion logic
 │       └── DateCalculator.swift         # Date/time calculations
 └── Tests/
-    └── NumiCalculatorTests/
+    └── SnapSumTests/
         ├── CalculatorEngineTests.swift
         ├── UnitConverterTests.swift
         ├── CurrencyConverterTests.swift
@@ -186,4 +224,4 @@ This is a personal project for educational purposes.
 
 ## Acknowledgments
 
-Inspired by [Numi](https://numi.app/), an excellent calculator app for macOS.
+Inspired by [SnapSum](https://numi.app/), an excellent calculator app for macOS.

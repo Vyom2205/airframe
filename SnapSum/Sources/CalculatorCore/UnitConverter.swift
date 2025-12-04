@@ -1,6 +1,6 @@
 import Foundation
 
-class NumiUnitConverter {
+class UnitConversionEngine {
     // Static regex for better performance
     private static let conversionPattern = try? NSRegularExpression(
         pattern: "(\\d+(?:\\.\\d+)?)\\s*([a-z]+)\\s+(?:in|to)\\s+([a-z]+)",
@@ -16,7 +16,7 @@ class NumiUnitConverter {
         }
         
         // Parse conversion pattern using static regex
-        guard let regex = NumiUnitConverter.conversionPattern,
+        guard let regex = UnitConversionEngine.conversionPattern,
               let match = regex.firstMatch(in: expr, range: NSRange(expr.startIndex..., in: expr)) else {
             return nil
         }

@@ -2,11 +2,11 @@ import XCTest
 @testable import CalculatorCore
 
 final class UnitConverterTests: XCTestCase {
-    var converter: NumiUnitConverter!
+    var converter: UnitConversionEngine!
     
     override func setUp() {
         super.setUp()
-        converter = NumiUnitConverter()
+        converter = UnitConversionEngine()
     }
     
     // MARK: - Length Conversion Tests

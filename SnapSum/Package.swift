@@ -2,7 +2,7 @@
 import PackageDescription
 
 let package = Package(
-    name: "NumiCalculator",
+    name: "SnapSum",
     platforms: [
         .macOS(.v13)
     ],
@@ -20,7 +20,7 @@ let package = Package(
             path: "Sources/CalculatorCore"
         ),
         .testTarget(
-            name: "NumiCalculatorTests",
+            name: "SnapSumTests",
             dependencies: ["CalculatorCore"],
             path: "Tests"
         )

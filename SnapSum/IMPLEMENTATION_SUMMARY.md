@@ -1,8 +1,8 @@
-# NumiCalculator Implementation Summary
+# SnapSum Implementation Summary
 
 ## Overview
 
-This is a complete implementation of a Numi-inspired calculator app for macOS. The application provides all the requested MVP features in a clean, well-tested codebase.
+This is a complete implementation of a Modern calculator app for macOS. The application provides all the requested MVP features in a clean, well-tested codebase.
 
 ## Architecture
 
@@ -10,12 +10,12 @@ The project follows a modular architecture with clear separation of concerns:
 
 ### Core Layer (Platform-Independent)
 - **CalculatorEngine**: Main calculation engine with recursive descent parser
-- **NumiUnitConverter**: Handles physical unit conversions
+- **SnapSumUnitConverter**: Handles physical unit conversions
 - **CurrencyConverter**: Handles currency conversions
 - **DateCalculator**: Handles date/time operations and timezone conversions
 
 ### UI Layer (macOS-Specific)
-- **NumiCalculatorApp**: Main SwiftUI app entry point
+- **SnapSumApp**: Main SwiftUI app entry point
 - **AppState**: Application state management with sheets
 - **ContentView**: Main UI with split-pane editor and results column
 
@@ -106,19 +106,19 @@ Comprehensive test suite with 36 tests covering:
 
 ### On macOS
 ```bash
-cd NumiCalculator
+cd SnapSum
 # Restore UI files
-mv Sources/NumiCalculatorUI Sources/NumiCalculator
+mv Sources/SnapSumUI Sources/SnapSum
 # Update Package.swift to add executable target back
 swift build
-swift run NumiCalculator
+swift run SnapSum
 ```
 
 See [BUILD_ON_MACOS.md](BUILD_ON_MACOS.md) for detailed instructions.
 
 ### Testing (Any Platform)
 ```bash
-cd NumiCalculator
+cd SnapSum
 swift test
 ```
 
@@ -155,15 +155,15 @@ While the MVP is complete, potential enhancements include:
 - `Sources/CalculatorCore/DateCalculator.swift` (185 lines)
 
 ### UI Files
-- `Sources/NumiCalculatorUI/NumiCalculatorApp.swift` (23 lines)
-- `Sources/NumiCalculatorUI/AppState.swift` (40 lines)
-- `Sources/NumiCalculatorUI/ContentView.swift` (165 lines)
+- `Sources/SnapSumUI/SnapSumApp.swift` (23 lines)
+- `Sources/SnapSumUI/AppState.swift` (40 lines)
+- `Sources/SnapSumUI/ContentView.swift` (165 lines)
 
 ### Test Files
-- `Tests/NumiCalculatorTests/CalculatorEngineTests.swift` (134 lines)
-- `Tests/NumiCalculatorTests/UnitConverterTests.swift` (61 lines)
-- `Tests/NumiCalculatorTests/CurrencyConverterTests.swift` (37 lines)
-- `Tests/NumiCalculatorTests/DateCalculatorTests.swift` (46 lines)
+- `Tests/SnapSumTests/CalculatorEngineTests.swift` (134 lines)
+- `Tests/SnapSumTests/UnitConverterTests.swift` (61 lines)
+- `Tests/SnapSumTests/CurrencyConverterTests.swift` (37 lines)
+- `Tests/SnapSumTests/DateCalculatorTests.swift` (46 lines)
 
 ### Configuration & Documentation
 - `Package.swift`
@@ -182,4 +182,4 @@ While the MVP is complete, potential enhancements include:
 
 ## Conclusion
 
-This implementation delivers a fully functional Numi-inspired calculator app with all requested MVP features. The code is well-structured, thoroughly tested, and ready for use on macOS. The modular architecture makes it easy to extend with additional features in the future.
+This implementation delivers a fully functional Modern calculator app with all requested MVP features. The code is well-structured, thoroughly tested, and ready for use on macOS. The modular architecture makes it easy to extend with additional features in the future.

@@ -1,6 +1,6 @@
-# NumiCalculator Usage Examples
+# SnapSum Usage Examples
 
-This document provides practical examples of using the NumiCalculator app.
+This document provides practical examples of using the SnapSum app.
 
 ## Getting Started
 

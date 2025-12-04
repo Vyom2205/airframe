@@ -12,11 +12,11 @@ This calculator application is designed to run on macOS using SwiftUI. To build 
 
 ### 1. Restore the UI Source Files
 
-The UI source files are stored in `Sources/NumiCalculatorUI/` to allow testing on non-macOS platforms. To build the full application, rename this directory:
+The UI source files are stored in `Sources/SnapSumUI/` to allow testing on non-macOS platforms. To build the full application, rename this directory:
 
 ```bash
-cd NumiCalculator
-mv Sources/NumiCalculatorUI Sources/NumiCalculator
+cd SnapSum
+mv Sources/SnapSumUI Sources/SnapSum
 ```
 
 ### 2. Update Package.swift (if needed)
@@ -26,8 +26,8 @@ Ensure the Package.swift includes the executable target. It should have:
 ```swift
 products: [
     .executable(
-        name: "NumiCalculator",
-        targets: ["NumiCalculator"]
+        name: "SnapSum",
+        targets: ["SnapSum"]
     ),
     .library(
         name: "CalculatorCore",
@@ -41,9 +41,9 @@ targets: [
         path: "Sources/CalculatorCore"
     ),
     .executableTarget(
-        name: "NumiCalculator",
+        name: "SnapSum",
         dependencies: ["CalculatorCore"],
-        path: "Sources/NumiCalculator"
+        path: "Sources/SnapSum"
     ),
     // ... tests ...
 ]
@@ -58,7 +58,7 @@ targets: [
    open Package.swift
    ```
 
-2. Select the "NumiCalculator" scheme from the scheme selector
+2. Select the "SnapSum" scheme from the scheme selector
 
 3. Build and run the project with ⌘R
 
@@ -66,7 +66,7 @@ targets: [
 
 ```bash
 swift build
-swift run NumiCalculator
+swift run SnapSum
 ```
 
 ### 4. Running Tests
@@ -80,7 +80,7 @@ swift test
 Once the UI directory is renamed, the structure should be:
 
 ```
-NumiCalculator/
+SnapSum/
 ├── Package.swift
 ├── Sources/
 │   ├── CalculatorCore/       # Core calculation logic (platform-independent)
@@ -88,12 +88,12 @@ NumiCalculator/
 │   │   ├── UnitConverter.swift
 │   │   ├── CurrencyConverter.swift
 │   │   └── DateCalculator.swift
-│   └── NumiCalculator/       # SwiftUI app (macOS only)
-│       ├── NumiCalculatorApp.swift
+│   └── SnapSum/       # SwiftUI app (macOS only)
+│       ├── SnapSumApp.swift
 │       ├── AppState.swift
 │       └── ContentView.swift
 └── Tests/
-    └── NumiCalculatorTests/
+    └── SnapSumTests/
         ├── CalculatorEngineTests.swift
         ├── UnitConverterTests.swift
         ├── CurrencyConverterTests.swift
@@ -106,9 +106,9 @@ NumiCalculator/
 
 This error occurs when trying to build on a non-macOS platform (like Linux). The SwiftUI framework is only available on Apple platforms. Make sure you're building on macOS.
 
-### Missing NumiCalculator directory
+### Missing SnapSum directory
 
-If the `Sources/NumiCalculator` directory doesn't exist, it may have been renamed to `NumiCalculatorUI` for CI compatibility. Rename it back using the command in step 1 above.
+If the `Sources/SnapSum` directory doesn't exist, it may have been renamed to `SnapSumUI` for CI compatibility. Rename it back using the command in step 1 above.
 
 ## Features
 

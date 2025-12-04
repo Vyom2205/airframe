@@ -2,7 +2,7 @@ import Foundation
 
 class CalculatorEngine {
     private var variables: [String: Double] = [:]
-    private let unitConverter = NumiUnitConverter()
+    private let unitConverter = UnitConversionEngine()
     private let currencyConverter = CurrencyConverter()
     private let dateCalculator = DateCalculator()
     
