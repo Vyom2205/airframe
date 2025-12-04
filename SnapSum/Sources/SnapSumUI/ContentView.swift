@@ -156,6 +156,9 @@ class ContentViewModel: ObservableObject {
     }
     
     func evaluateContent() {
+        // Note: For large documents, consider incremental evaluation
+        // where only modified lines are re-evaluated. Current approach
+        // is optimal for typical calculator use cases (< 100 lines).
         let lines = content.components(separatedBy: .newlines)
         evaluatedLines = lines.enumerated().map { index, line in
             let result = calculator.evaluate(line)
@@ -199,6 +202,9 @@ struct EditorView: View {
                             get: { viewModel.content },
                             set: { newValue in
                                 viewModel.content = newValue
+                                // Note: For optimal performance with very large documents,
+                                // consider adding debouncing or incremental evaluation.
+                                // Current implementation is suitable for typical use cases.
                                 viewModel.evaluateContent()
                             }
                         ))

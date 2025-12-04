@@ -224,4 +224,4 @@ This is a personal project for educational purposes.
 
 ## Acknowledgments
 
-Inspired by [SnapSum](https://numi.app/), an excellent calculator app for macOS.
+Inspired by [Numi](https://numi.app/) by Nikolai Krill, an excellent calculator app for macOS.

@@ -27,10 +27,11 @@ if [ -d "${PROJECT_DIR}/Sources/SnapSumUI" ] && [ ! -d "${PROJECT_DIR}/Sources/S
     mv "${PROJECT_DIR}/Sources/SnapSumUI" "${PROJECT_DIR}/Sources/SnapSum"
 fi
 
-# Update Package.swift if needed
+# Verify Package.swift is correctly configured
 if ! grep -q 'name: "SnapSum"' "${PROJECT_DIR}/Package.swift"; then
-    echo "Updating Package.swift..."
-    # Package.swift should already be updated, but check anyway
+    echo "${RED}❌ Error: Package.swift not properly configured for SnapSum${NC}"
+    echo "Please ensure Package.swift has the correct project name."
+    exit 1
 fi
 
 echo "${BLUE}📦 Step 2: Building SnapSum in Release mode...${NC}"

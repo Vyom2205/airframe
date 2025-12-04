@@ -7,6 +7,36 @@ class UnitConversionEngine {
         options: .caseInsensitive
     )
     
+    // Static unit conversion tables for better performance
+    private static let lengthUnits: [String: Double] = [
+        "m": 1.0, "meter": 1.0, "meters": 1.0,
+        "km": 1000.0, "kilometer": 1000.0, "kilometers": 1000.0,
+        "cm": 0.01, "centimeter": 0.01, "centimeters": 0.01,
+        "mm": 0.001, "millimeter": 0.001, "millimeters": 0.001,
+        "mi": 1609.34, "mile": 1609.34, "miles": 1609.34,
+        "ft": 0.3048, "foot": 0.3048, "feet": 0.3048,
+        "in": 0.0254, "inch": 0.0254, "inches": 0.0254,
+        "yd": 0.9144, "yard": 0.9144, "yards": 0.9144
+    ]
+    
+    private static let weightUnits: [String: Double] = [
+        "kg": 1.0, "kilogram": 1.0, "kilograms": 1.0,
+        "g": 0.001, "gram": 0.001, "grams": 0.001,
+        "mg": 0.000001, "milligram": 0.000001, "milligrams": 0.000001,
+        "lb": 0.453592, "pound": 0.453592, "pounds": 0.453592,
+        "oz": 0.0283495, "ounce": 0.0283495, "ounces": 0.0283495,
+        "ton": 1000.0, "tons": 1000.0
+    ]
+    
+    private static let areaUnits: [String: Double] = [
+        "sqm": 1.0, "m2": 1.0,
+        "sqkm": 1000000.0, "km2": 1000000.0,
+        "sqft": 0.092903, "ft2": 0.092903,
+        "sqmi": 2589988.11, "mi2": 2589988.11,
+        "acre": 4046.86, "acres": 4046.86,
+        "hectare": 10000.0, "hectares": 10000.0
+    ]
+    
     func evaluate(_ input: String, variables: [String: Double]) -> String? {
         var expr = input.lowercased()
         
@@ -39,38 +69,6 @@ class UnitConversionEngine {
     }
     
     private func convert(value: Double, from fromUnit: String, to toUnit: String) -> Double? {
-        // Length conversions
-        let lengthUnits: [String: Double] = [
-            "m": 1.0, "meter": 1.0, "meters": 1.0,
-            "km": 1000.0, "kilometer": 1000.0, "kilometers": 1000.0,
-            "cm": 0.01, "centimeter": 0.01, "centimeters": 0.01,
-            "mm": 0.001, "millimeter": 0.001, "millimeters": 0.001,
-            "mi": 1609.34, "mile": 1609.34, "miles": 1609.34,
-            "ft": 0.3048, "foot": 0.3048, "feet": 0.3048,
-            "in": 0.0254, "inch": 0.0254, "inches": 0.0254,
-            "yd": 0.9144, "yard": 0.9144, "yards": 0.9144
-        ]
-        
-        // Weight/Mass conversions
-        let weightUnits: [String: Double] = [
-            "kg": 1.0, "kilogram": 1.0, "kilograms": 1.0,
-            "g": 0.001, "gram": 0.001, "grams": 0.001,
-            "mg": 0.000001, "milligram": 0.000001, "milligrams": 0.000001,
-            "lb": 0.453592, "pound": 0.453592, "pounds": 0.453592,
-            "oz": 0.0283495, "ounce": 0.0283495, "ounces": 0.0283495,
-            "ton": 1000.0, "tons": 1000.0
-        ]
-        
-        // Area conversions
-        let areaUnits: [String: Double] = [
-            "sqm": 1.0, "m2": 1.0,
-            "sqkm": 1000000.0, "km2": 1000000.0,
-            "sqft": 0.092903, "ft2": 0.092903,
-            "sqmi": 2589988.11, "mi2": 2589988.11,
-            "acre": 4046.86, "acres": 4046.86,
-            "hectare": 10000.0, "hectares": 10000.0
-        ]
-        
         // Temperature conversions (special case)
         if (fromUnit == "c" || fromUnit == "celsius") && (toUnit == "f" || toUnit == "fahrenheit") {
             return value * 9/5 + 32
@@ -91,18 +89,21 @@ class UnitConversionEngine {
             return (value - 273.15) * 9/5 + 32
         }
         
-        // Try length conversion
-        if let fromFactor = lengthUnits[fromUnit], let toFactor = lengthUnits[toUnit] {
+        // Try length conversion using static table
+        if let fromFactor = UnitConversionEngine.lengthUnits[fromUnit],
+           let toFactor = UnitConversionEngine.lengthUnits[toUnit] {
             return value * fromFactor / toFactor
         }
         
-        // Try weight conversion
-        if let fromFactor = weightUnits[fromUnit], let toFactor = weightUnits[toUnit] {
+        // Try weight conversion using static table
+        if let fromFactor = UnitConversionEngine.weightUnits[fromUnit],
+           let toFactor = UnitConversionEngine.weightUnits[toUnit] {
             return value * fromFactor / toFactor
         }
         
-        // Try area conversion
-        if let fromFactor = areaUnits[fromUnit], let toFactor = areaUnits[toUnit] {
+        // Try area conversion using static table
+        if let fromFactor = UnitConversionEngine.areaUnits[fromUnit],
+           let toFactor = UnitConversionEngine.areaUnits[toUnit] {
             return value * fromFactor / toFactor
         }
         
