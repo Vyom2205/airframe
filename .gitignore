@@ -1,0 +1,19 @@
+# Ignore common files
+.DS_Store
+Thumbs.db
+*.log
+*.tmp
+
+# Ignore node_modules if added later
+node_modules/
+package-lock.json
+
+# Ignore IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Ignore build artifacts
+dist/
+build/
