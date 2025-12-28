@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Airport Blueprint Map - Demo</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>Airport Blueprint Map - Demo</h1>
+            <p class="subtitle">Demo with sample airport data (KSEA - Seattle-Tacoma)</p>
+        </header>
+        
+        <div class="controls">
+            <div class="control-group">
+                <button id="loadDemo" class="btn btn-primary">Load Demo Airport (KSEA)</button>
+            </div>
+            
+            <div class="control-row">
+                <div class="control-group">
+                    <label for="themeSelect">Theme:</label>
+                    <select id="themeSelect" class="select-field">
+                        <option value="blueprint">Blueprint</option>
+                        <option value="dark">Dark</option>
+                        <option value="white">White</option>
+                    </select>
+                </div>
+                
+                <div class="control-group">
+                    <label for="aspectRatio">Aspect Ratio:</label>
+                    <select id="aspectRatio" class="select-field">
+                        <option value="16:9">16:9 (Landscape)</option>
+                        <option value="9:16">9:16 (Portrait)</option>
+                        <option value="1:1">1:1 (Square)</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="control-row">
+                <button id="downloadSVG" class="btn btn-secondary">Download SVG</button>
+                <button id="downloadPNG" class="btn btn-secondary">Download PNG (4K)</button>
+            </div>
+        </div>
+        
+        <div id="status" class="status"></div>
+        
+        <div id="canvasContainer" class="canvas-container">
+            <svg id="airportSVG" class="airport-svg"></svg>
+        </div>
+    </div>
+    
+    <script src="demo.js"></script>
+</body>
+</html>
