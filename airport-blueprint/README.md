@@ -1,4 +1,4 @@
-# Airport Blueprint Map
+# AirFrame
 
 A minimalist web application for visualizing airport layouts using OpenStreetMap data. Similar to [city-roads](https://anvaka.github.io/city-roads/) but specifically designed for airports.
 
@@ -8,8 +8,12 @@ A minimalist web application for visualizing airport layouts using OpenStreetMap
 - **Vector Rendering**: Pure SVG rendering with no external map tiles
 - **Blueprint Style**: Clean, minimalist visualization with:
   - Runways (thick lines)
-  - Taxiways (thin lines)  
+  - Taxiways (medium lines)
+  - Taxilanes (thinner lines)
+  - Aprons (large paved areas)
   - Terminals (outlined polygons)
+  - Buildings & Hangars (very thin outlines)
+  - Parking positions (small markers)
 - **Theme Options**: Blueprint (dark blue), Dark, and White themes
 - **Aspect Ratios**: 16:9, 9:16, and 1:1 for different display needs
 - **High-Quality Export**: Download as SVG or PNG (4K resolution, wallpaper-ready)
@@ -38,14 +42,18 @@ The application consists of three main components:
 ### 1. OverpassAPI Class
 - Queries OpenStreetMap via Overpass API
 - Searches for airports by ICAO/IATA codes
-- Fetches runway, taxiway, and terminal geometries
+- Fetches comprehensive airport infrastructure:
+  - Runways, taxiways, taxilanes
+  - Aprons and parking positions
+  - Terminals and buildings
 - Processes OSM data into structured format
 
 ### 2. AirportRenderer Class
 - Converts geographic coordinates to SVG space
 - Auto-scales and centers airport layouts
 - Applies theme styling (colors, line widths)
-- Renders layered elements (terminals → taxiways → runways)
+- Renders layered elements with proper visual hierarchy:
+  - Aprons (bottom) → Buildings → Terminals → Taxilanes → Taxiways → Runways (top)
 
 ### 3. ExportManager Class
 - Handles SVG file downloads
@@ -69,8 +77,15 @@ The application consists of three main components:
 
 The app queries OSM for:
 - `aeroway=runway` - Airport runways
-- `aeroway=taxiway` - Taxiing paths
+- `aeroway=taxiway` - Main taxiing paths
+- `aeroway=taxilane` - Gate-to-taxiway connectors
+- `aeroway=apron` - Paved aircraft parking areas
 - `aeroway=terminal` - Terminal buildings
+- `aeroway=parking_position` - Aircraft parking spots
+- `building=*` - All airport buildings
+- `building=hangar` - Aircraft hangars
+- `building=terminal` - Terminal buildings
+- `building=industrial` - Support facilities
 
 ## Browser Compatibility
 
@@ -103,7 +118,10 @@ const THEMES = {
         stroke: '#stroke-color',
         runwayWidth: 4,
         taxiwayWidth: 2,
-        terminalWidth: 1.5
+        taxilaneWidth: 1.5,
+        apronWidth: 1,
+        buildingWidth: 0.8,
+        parkingWidth: 0.5
     }
 };
 ```

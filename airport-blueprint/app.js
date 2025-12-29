@@ -1,5 +1,5 @@
 /**
- * Airport Blueprint Map - Main Application
+ * AirFrame - Airport Blueprint Map
  * 
  * Architecture:
  * 1. OverpassAPI - Handles fetching airport data from OpenStreetMap
@@ -15,21 +15,33 @@ const THEMES = {
         stroke: '#ffffff',
         runwayWidth: 4,
         taxiwayWidth: 2,
-        terminalWidth: 1.5
+        taxilaneWidth: 1.5,
+        terminalWidth: 1.5,
+        apronWidth: 1,
+        buildingWidth: 0.8,
+        parkingWidth: 0.5
     },
     dark: {
         background: '#1a1a1a',
         stroke: '#ffffff',
         runwayWidth: 4,
         taxiwayWidth: 2,
-        terminalWidth: 1.5
+        taxilaneWidth: 1.5,
+        terminalWidth: 1.5,
+        apronWidth: 1,
+        buildingWidth: 0.8,
+        parkingWidth: 0.5
     },
     white: {
         background: '#ffffff',
         stroke: '#000000',
         runwayWidth: 4,
         taxiwayWidth: 2,
-        terminalWidth: 1.5
+        taxilaneWidth: 1.5,
+        terminalWidth: 1.5,
+        apronWidth: 1,
+        buildingWidth: 0.8,
+        parkingWidth: 0.5
     }
 };
 
@@ -47,12 +59,12 @@ class OverpassAPI {
 
     /**
      * Build Overpass QL query to fetch airport geometry
-     * Searches for airport by ICAO/IATA code
+     * Searches for airport by ICAO/IATA code and fetches all relevant infrastructure
      */
     buildQuery(airportCode) {
         const code = airportCode.toUpperCase().trim();
         
-        // Query searches for aeroway elements within airports matching the code
+        // Query searches for aeroway elements and buildings within airports matching the code
         return `
             [out:json][timeout:25];
             (
@@ -69,14 +81,34 @@ class OverpassAPI {
             
             // Get all airport elements within the airport area
             (
+              // Primary aeroway infrastructure
               way(area.airport)["aeroway"="runway"];
               way(area.airport)["aeroway"="taxiway"];
+              way(area.airport)["aeroway"="taxilane"];
+              way(area.airport)["aeroway"="apron"];
               way(area.airport)["aeroway"="terminal"];
-              // Also search in a broader area around the airport
+              way(area.airport)["aeroway"="parking_position"];
+              
+              // Buildings at airport
+              way(area.airport)["building"];
+              way(area.airport)["building"="terminal"];
+              way(area.airport)["building"="hangar"];
+              way(area.airport)["building"="industrial"];
+              way(area.airport)["amenity"="airport_terminal"];
+              
+              // Also search in a broader area around the airport nodes
               node(area.airport)->.nodes;
               way(bn.nodes)["aeroway"="runway"];
               way(bn.nodes)["aeroway"="taxiway"];
+              way(bn.nodes)["aeroway"="taxilane"];
+              way(bn.nodes)["aeroway"="apron"];
               way(bn.nodes)["aeroway"="terminal"];
+              way(bn.nodes)["aeroway"="parking_position"];
+              way(bn.nodes)["building"];
+              way(bn.nodes)["building"="terminal"];
+              way(bn.nodes)["building"="hangar"];
+              way(bn.nodes)["building"="industrial"];
+              way(bn.nodes)["amenity"="airport_terminal"];
             );
             
             out geom;
@@ -115,7 +147,11 @@ class OverpassAPI {
     processData(data) {
         const runways = [];
         const taxiways = [];
+        const taxilanes = [];
         const terminals = [];
+        const aprons = [];
+        const buildings = [];
+        const parkingPositions = [];
 
         if (!data.elements || data.elements.length === 0) {
             throw new Error('No airport data found for this code');
@@ -134,17 +170,28 @@ class OverpassAPI {
                     tags: element.tags || {}
                 };
 
+                // Categorize by aeroway type
                 if (element.tags?.aeroway === 'runway') {
                     runways.push(item);
                 } else if (element.tags?.aeroway === 'taxiway') {
                     taxiways.push(item);
+                } else if (element.tags?.aeroway === 'taxilane') {
+                    taxilanes.push(item);
                 } else if (element.tags?.aeroway === 'terminal') {
                     terminals.push(item);
+                } else if (element.tags?.aeroway === 'apron') {
+                    aprons.push(item);
+                } else if (element.tags?.aeroway === 'parking_position') {
+                    parkingPositions.push(item);
+                } 
+                // Categorize buildings
+                else if (element.tags?.building || element.tags?.amenity === 'airport_terminal') {
+                    buildings.push(item);
                 }
             }
         });
 
-        return { runways, taxiways, terminals };
+        return { runways, taxiways, taxilanes, terminals, aprons, buildings, parkingPositions };
     }
 }
 
@@ -180,7 +227,11 @@ class AirportRenderer {
         const allElements = [
             ...airportData.runways,
             ...airportData.taxiways,
-            ...airportData.terminals
+            ...(airportData.taxilanes || []),
+            ...airportData.terminals,
+            ...(airportData.aprons || []),
+            ...(airportData.buildings || []),
+            ...(airportData.parkingPositions || [])
         ];
 
         allElements.forEach(element => {
@@ -228,7 +279,11 @@ class AirportRenderer {
         // Clear existing content
         this.svg.innerHTML = '';
         
-        if (!airportData.runways.length && !airportData.taxiways.length && !airportData.terminals.length) {
+        const hasAnyData = airportData.runways.length || airportData.taxiways.length || 
+                          airportData.terminals.length || (airportData.buildings && airportData.buildings.length) ||
+                          (airportData.aprons && airportData.aprons.length);
+        
+        if (!hasAnyData) {
             throw new Error('No airport elements to render');
         }
 
@@ -250,17 +305,47 @@ class AirportRenderer {
         background.setAttribute('fill', this.theme.background);
         this.svg.appendChild(background);
 
-        // Render terminals (bottom layer)
+        // Render in layers from bottom to top for proper visual hierarchy
+        
+        // Layer 1: Aprons (bottom - large paved areas)
+        if (airportData.aprons) {
+            airportData.aprons.forEach(apron => {
+                this.renderWay(apron, bounds, width, height, this.theme.apronWidth, true);
+            });
+        }
+
+        // Layer 2: Parking positions
+        if (airportData.parkingPositions) {
+            airportData.parkingPositions.forEach(parking => {
+                this.renderWay(parking, bounds, width, height, this.theme.parkingWidth, false);
+            });
+        }
+
+        // Layer 3: Buildings (including terminals if they are buildings)
+        if (airportData.buildings) {
+            airportData.buildings.forEach(building => {
+                this.renderWay(building, bounds, width, height, this.theme.buildingWidth, true);
+            });
+        }
+
+        // Layer 4: Terminals (aeroway=terminal polygons)
         airportData.terminals.forEach(terminal => {
             this.renderWay(terminal, bounds, width, height, this.theme.terminalWidth, true);
         });
 
-        // Render taxiways (middle layer)
+        // Layer 5: Taxilanes (connecting taxiways)
+        if (airportData.taxilanes) {
+            airportData.taxilanes.forEach(taxilane => {
+                this.renderWay(taxilane, bounds, width, height, this.theme.taxilaneWidth);
+            });
+        }
+
+        // Layer 6: Taxiways (major taxi routes)
         airportData.taxiways.forEach(taxiway => {
             this.renderWay(taxiway, bounds, width, height, this.theme.taxiwayWidth);
         });
 
-        // Render runways (top layer)
+        // Layer 7: Runways (top - most prominent)
         airportData.runways.forEach(runway => {
             this.renderWay(runway, bounds, width, height, this.theme.runwayWidth);
         });
@@ -451,7 +536,17 @@ class AirportApp {
 
             this.renderer.render(data);
             
-            const stats = `Loaded: ${data.runways.length} runways, ${data.taxiways.length} taxiways, ${data.terminals.length} terminals`;
+            // Build status message with all available elements
+            const statsParts = [];
+            if (data.runways.length) statsParts.push(`${data.runways.length} runways`);
+            if (data.taxiways.length) statsParts.push(`${data.taxiways.length} taxiways`);
+            if (data.taxilanes && data.taxilanes.length) statsParts.push(`${data.taxilanes.length} taxilanes`);
+            if (data.aprons && data.aprons.length) statsParts.push(`${data.aprons.length} aprons`);
+            if (data.terminals.length) statsParts.push(`${data.terminals.length} terminals`);
+            if (data.buildings && data.buildings.length) statsParts.push(`${data.buildings.length} buildings`);
+            if (data.parkingPositions && data.parkingPositions.length) statsParts.push(`${data.parkingPositions.length} parking positions`);
+            
+            const stats = `Loaded: ${statsParts.join(', ')}`;
             this.setStatus(stats, 'success');
             this.setDownloadButtonsState(true);
         } catch (error) {

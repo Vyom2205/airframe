@@ -1,9 +1,10 @@
 /**
- * Airport Blueprint Map - Demo Version
+ * AirFrame - Airport Blueprint Map (Demo Version)
  * Uses sample data to demonstrate functionality without external API calls
  */
 
 // Sample airport data (KSEA - Seattle-Tacoma International Airport)
+// Enhanced with buildings, aprons, taxilanes, and parking positions
 const SAMPLE_AIRPORT_DATA = {
     runways: [
         {
@@ -75,6 +76,66 @@ const SAMPLE_AIRPORT_DATA = {
             tags: { aeroway: 'taxiway' }
         }
     ],
+    taxilanes: [
+        // Taxilanes connecting gates to taxiways
+        {
+            id: 30,
+            coordinates: [
+                { lat: 47.4557, lon: -122.3155 },
+                { lat: 47.4555, lon: -122.3145 }
+            ],
+            tags: { aeroway: 'taxilane' }
+        },
+        {
+            id: 31,
+            coordinates: [
+                { lat: 47.4545, lon: -122.3155 },
+                { lat: 47.4543, lon: -122.3145 }
+            ],
+            tags: { aeroway: 'taxilane' }
+        },
+        {
+            id: 32,
+            coordinates: [
+                { lat: 47.4532, lon: -122.3105 },
+                { lat: 47.4530, lon: -122.3095 }
+            ],
+            tags: { aeroway: 'taxilane' }
+        },
+        {
+            id: 33,
+            coordinates: [
+                { lat: 47.4520, lon: -122.3105 },
+                { lat: 47.4518, lon: -122.3095 }
+            ],
+            tags: { aeroway: 'taxilane' }
+        }
+    ],
+    aprons: [
+        // Large apron area near terminals
+        {
+            id: 40,
+            coordinates: [
+                { lat: 47.4565, lon: -122.3165 },
+                { lat: 47.4565, lon: -122.3140 },
+                { lat: 47.4535, lon: -122.3140 },
+                { lat: 47.4535, lon: -122.3165 },
+                { lat: 47.4565, lon: -122.3165 }
+            ],
+            tags: { aeroway: 'apron' }
+        },
+        {
+            id: 41,
+            coordinates: [
+                { lat: 47.4540, lon: -122.3115 },
+                { lat: 47.4540, lon: -122.3090 },
+                { lat: 47.4510, lon: -122.3090 },
+                { lat: 47.4510, lon: -122.3115 },
+                { lat: 47.4540, lon: -122.3115 }
+            ],
+            tags: { aeroway: 'apron' }
+        }
+    ],
     terminals: [
         {
             id: 20,
@@ -98,6 +159,111 @@ const SAMPLE_AIRPORT_DATA = {
             ],
             tags: { aeroway: 'terminal', name: 'North Terminal' }
         }
+    ],
+    buildings: [
+        // Hangars
+        {
+            id: 50,
+            coordinates: [
+                { lat: 47.4510, lon: -122.3175 },
+                { lat: 47.4510, lon: -122.3155 },
+                { lat: 47.4495, lon: -122.3155 },
+                { lat: 47.4495, lon: -122.3175 },
+                { lat: 47.4510, lon: -122.3175 }
+            ],
+            tags: { building: 'hangar' }
+        },
+        {
+            id: 51,
+            coordinates: [
+                { lat: 47.4493, lon: -122.3175 },
+                { lat: 47.4493, lon: -122.3155 },
+                { lat: 47.4478, lon: -122.3155 },
+                { lat: 47.4478, lon: -122.3175 },
+                { lat: 47.4493, lon: -122.3175 }
+            ],
+            tags: { building: 'hangar' }
+        },
+        {
+            id: 52,
+            coordinates: [
+                { lat: 47.4476, lon: -122.3175 },
+                { lat: 47.4476, lon: -122.3155 },
+                { lat: 47.4461, lon: -122.3155 },
+                { lat: 47.4461, lon: -122.3175 },
+                { lat: 47.4476, lon: -122.3175 }
+            ],
+            tags: { building: 'hangar' }
+        },
+        // Smaller support buildings
+        {
+            id: 53,
+            coordinates: [
+                { lat: 47.4575, lon: -122.3180 },
+                { lat: 47.4575, lon: -122.3170 },
+                { lat: 47.4565, lon: -122.3170 },
+                { lat: 47.4565, lon: -122.3180 },
+                { lat: 47.4575, lon: -122.3180 }
+            ],
+            tags: { building: 'yes' }
+        },
+        {
+            id: 54,
+            coordinates: [
+                { lat: 47.4455, lon: -122.3040 },
+                { lat: 47.4455, lon: -122.3025 },
+                { lat: 47.4445, lon: -122.3025 },
+                { lat: 47.4445, lon: -122.3040 },
+                { lat: 47.4455, lon: -122.3040 }
+            ],
+            tags: { building: 'industrial' }
+        },
+        {
+            id: 55,
+            coordinates: [
+                { lat: 47.4590, lon: -122.3145 },
+                { lat: 47.4590, lon: -122.3135 },
+                { lat: 47.4582, lon: -122.3135 },
+                { lat: 47.4582, lon: -122.3145 },
+                { lat: 47.4590, lon: -122.3145 }
+            ],
+            tags: { building: 'yes' }
+        }
+    ],
+    parkingPositions: [
+        // Gate parking positions
+        {
+            id: 60,
+            coordinates: [
+                { lat: 47.4558, lon: -122.3148 },
+                { lat: 47.4556, lon: -122.3150 }
+            ],
+            tags: { aeroway: 'parking_position' }
+        },
+        {
+            id: 61,
+            coordinates: [
+                { lat: 47.4546, lon: -122.3148 },
+                { lat: 47.4544, lon: -122.3150 }
+            ],
+            tags: { aeroway: 'parking_position' }
+        },
+        {
+            id: 62,
+            coordinates: [
+                { lat: 47.4531, lon: -122.3098 },
+                { lat: 47.4529, lon: -122.3100 }
+            ],
+            tags: { aeroway: 'parking_position' }
+        },
+        {
+            id: 63,
+            coordinates: [
+                { lat: 47.4519, lon: -122.3098 },
+                { lat: 47.4517, lon: -122.3100 }
+            ],
+            tags: { aeroway: 'parking_position' }
+        }
     ]
 };
 
@@ -108,21 +274,33 @@ const THEMES = {
         stroke: '#ffffff',
         runwayWidth: 4,
         taxiwayWidth: 2,
-        terminalWidth: 1.5
+        taxilaneWidth: 1.5,
+        terminalWidth: 1.5,
+        apronWidth: 1,
+        buildingWidth: 0.8,
+        parkingWidth: 0.5
     },
     dark: {
         background: '#1a1a1a',
         stroke: '#ffffff',
         runwayWidth: 4,
         taxiwayWidth: 2,
-        terminalWidth: 1.5
+        taxilaneWidth: 1.5,
+        terminalWidth: 1.5,
+        apronWidth: 1,
+        buildingWidth: 0.8,
+        parkingWidth: 0.5
     },
     white: {
         background: '#ffffff',
         stroke: '#000000',
         runwayWidth: 4,
         taxiwayWidth: 2,
-        terminalWidth: 1.5
+        taxilaneWidth: 1.5,
+        terminalWidth: 1.5,
+        apronWidth: 1,
+        buildingWidth: 0.8,
+        parkingWidth: 0.5
     }
 };
 
@@ -155,7 +333,11 @@ class AirportRenderer {
         const allElements = [
             ...airportData.runways,
             ...airportData.taxiways,
-            ...airportData.terminals
+            ...(airportData.taxilanes || []),
+            ...airportData.terminals,
+            ...(airportData.aprons || []),
+            ...(airportData.buildings || []),
+            ...(airportData.parkingPositions || [])
         ];
 
         allElements.forEach(element => {
@@ -211,17 +393,47 @@ class AirportRenderer {
         background.setAttribute('fill', this.theme.background);
         this.svg.appendChild(background);
 
-        // Render terminals
+        // Render in layers from bottom to top for proper visual hierarchy
+        
+        // Layer 1: Aprons (bottom - large paved areas)
+        if (airportData.aprons) {
+            airportData.aprons.forEach(apron => {
+                this.renderWay(apron, bounds, width, height, this.theme.apronWidth, true);
+            });
+        }
+
+        // Layer 2: Parking positions
+        if (airportData.parkingPositions) {
+            airportData.parkingPositions.forEach(parking => {
+                this.renderWay(parking, bounds, width, height, this.theme.parkingWidth, false);
+            });
+        }
+
+        // Layer 3: Buildings (including hangars)
+        if (airportData.buildings) {
+            airportData.buildings.forEach(building => {
+                this.renderWay(building, bounds, width, height, this.theme.buildingWidth, true);
+            });
+        }
+
+        // Layer 4: Terminals (aeroway=terminal polygons)
         airportData.terminals.forEach(terminal => {
             this.renderWay(terminal, bounds, width, height, this.theme.terminalWidth, true);
         });
 
-        // Render taxiways
+        // Layer 5: Taxilanes (connecting taxiways to gates)
+        if (airportData.taxilanes) {
+            airportData.taxilanes.forEach(taxilane => {
+                this.renderWay(taxilane, bounds, width, height, this.theme.taxilaneWidth);
+            });
+        }
+
+        // Layer 6: Taxiways (major taxi routes)
         airportData.taxiways.forEach(taxiway => {
             this.renderWay(taxiway, bounds, width, height, this.theme.taxiwayWidth);
         });
 
-        // Render runways
+        // Layer 7: Runways (top - most prominent)
         airportData.runways.forEach(runway => {
             this.renderWay(runway, bounds, width, height, this.theme.runwayWidth);
         });
@@ -369,7 +581,18 @@ class DemoApp {
             this.currentAirportData = SAMPLE_AIRPORT_DATA;
             this.renderer.render(SAMPLE_AIRPORT_DATA);
             
-            const stats = `Loaded: ${SAMPLE_AIRPORT_DATA.runways.length} runways, ${SAMPLE_AIRPORT_DATA.taxiways.length} taxiways, ${SAMPLE_AIRPORT_DATA.terminals.length} terminals`;
+            // Build status message with all available elements
+            const data = SAMPLE_AIRPORT_DATA;
+            const statsParts = [];
+            if (data.runways.length) statsParts.push(`${data.runways.length} runways`);
+            if (data.taxiways.length) statsParts.push(`${data.taxiways.length} taxiways`);
+            if (data.taxilanes && data.taxilanes.length) statsParts.push(`${data.taxilanes.length} taxilanes`);
+            if (data.aprons && data.aprons.length) statsParts.push(`${data.aprons.length} aprons`);
+            if (data.terminals.length) statsParts.push(`${data.terminals.length} terminals`);
+            if (data.buildings && data.buildings.length) statsParts.push(`${data.buildings.length} buildings`);
+            if (data.parkingPositions && data.parkingPositions.length) statsParts.push(`${data.parkingPositions.length} parking positions`);
+            
+            const stats = `Loaded: ${statsParts.join(', ')}`;
             this.setStatus(stats, 'success');
             this.setDownloadButtonsState(true);
         }, 500);
