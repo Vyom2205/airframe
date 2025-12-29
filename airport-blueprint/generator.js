@@ -558,7 +558,7 @@ class AirportRenderer {
     }
     
     /**
-     * Render airport to SVG
+     * Render airport to SVG with enhanced blueprint details
      */
     render(airport) {
         this.svg.innerHTML = '';
@@ -580,7 +580,14 @@ class AirportRenderer {
         
         const transform = (p) => this.transformToSVG(p, bounds, width, height);
         
-        // Render aprons (bottom layer)
+        // Calculate scale for proper sizing of blueprint details
+        const boundsWidth = bounds.maxX - bounds.minX;
+        const boundsHeight = bounds.maxY - bounds.minY;
+        const availableWidth = width - 200;
+        const availableHeight = height - 200;
+        const scale = Math.min(availableWidth / boundsWidth, availableHeight / boundsHeight);
+        
+        // Render aprons (bottom layer) - large paved areas
         airport.aprons.forEach(apron => {
             const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
             const points = apron.points.map(p => {
@@ -588,29 +595,61 @@ class AirportRenderer {
                 return `${tp.x},${tp.y}`;
             }).join(' ');
             polygon.setAttribute('points', points);
-            polygon.setAttribute('fill', 'none');
+            polygon.setAttribute('fill', this.theme.stroke);
+            polygon.setAttribute('fill-opacity', '0.05');
             polygon.setAttribute('stroke', this.theme.stroke);
-            polygon.setAttribute('stroke-width', '0.5');
-            polygon.setAttribute('opacity', '0.3');
+            polygon.setAttribute('stroke-width', '1');
+            polygon.setAttribute('opacity', '0.4');
             this.svg.appendChild(polygon);
         });
         
-        // Render taxiways
+        // Render taxiways - filled paths with rounded corners
         airport.taxiways.forEach(taxiway => {
-            const line = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
-            const points = taxiway.path.map(p => {
-                const tp = transform(p);
-                return `${tp.x},${tp.y}`;
-            }).join(' ');
-            line.setAttribute('points', points);
-            line.setAttribute('fill', 'none');
-            line.setAttribute('stroke', this.theme.stroke);
-            line.setAttribute('stroke-width', this.theme.taxiwayWidth);
-            line.setAttribute('stroke-linecap', 'round');
-            this.svg.appendChild(line);
+            const path = taxiway.path.map(p => transform(p));
+            if (path.length < 2) return;
+            
+            // Create wide taxiway with parallel lines
+            const taxiwayWidth = 15 * scale;
+            
+            for (let i = 0; i < path.length - 1; i++) {
+                const p1 = path[i];
+                const p2 = path[i + 1];
+                
+                const dx = p2.x - p1.x;
+                const dy = p2.y - p1.y;
+                const len = Math.sqrt(dx * dx + dy * dy);
+                const nx = -dy / len;
+                const ny = dx / len;
+                
+                // Create taxiway rectangle
+                const rect = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+                const points = [
+                    `${p1.x + nx * taxiwayWidth},${p1.y + ny * taxiwayWidth}`,
+                    `${p2.x + nx * taxiwayWidth},${p2.y + ny * taxiwayWidth}`,
+                    `${p2.x - nx * taxiwayWidth},${p2.y - ny * taxiwayWidth}`,
+                    `${p1.x - nx * taxiwayWidth},${p1.y - ny * taxiwayWidth}`
+                ].join(' ');
+                rect.setAttribute('points', points);
+                rect.setAttribute('fill', 'none');
+                rect.setAttribute('stroke', this.theme.stroke);
+                rect.setAttribute('stroke-width', '1.5');
+                this.svg.appendChild(rect);
+                
+                // Add center line (dashed)
+                const centerLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                centerLine.setAttribute('x1', p1.x);
+                centerLine.setAttribute('y1', p1.y);
+                centerLine.setAttribute('x2', p2.x);
+                centerLine.setAttribute('y2', p2.y);
+                centerLine.setAttribute('stroke', this.theme.stroke);
+                centerLine.setAttribute('stroke-width', '0.8');
+                centerLine.setAttribute('stroke-dasharray', `${8 * scale},${4 * scale}`);
+                centerLine.setAttribute('opacity', '0.6');
+                this.svg.appendChild(centerLine);
+            }
         });
         
-        // Render terminals
+        // Render terminals - filled polygon shapes with architectural detail
         airport.terminals.forEach(terminal => {
             const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
             const points = terminal.points.map(p => {
@@ -618,39 +657,120 @@ class AirportRenderer {
                 return `${tp.x},${tp.y}`;
             }).join(' ');
             polygon.setAttribute('points', points);
-            polygon.setAttribute('fill', 'none');
+            polygon.setAttribute('fill', this.theme.stroke);
+            polygon.setAttribute('fill-opacity', '0.1');
             polygon.setAttribute('stroke', this.theme.stroke);
-            polygon.setAttribute('stroke-width', this.theme.buildingWidth);
+            polygon.setAttribute('stroke-width', '2');
             this.svg.appendChild(polygon);
         });
         
-        // Render gates
+        // Render gates as small protrusions
         airport.gates.forEach(gate => {
-            const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
             const start = transform(gate.start);
             const end = transform(gate.end);
-            line.setAttribute('x1', start.x);
-            line.setAttribute('y1', start.y);
-            line.setAttribute('x2', end.x);
-            line.setAttribute('y2', end.y);
-            line.setAttribute('stroke', this.theme.stroke);
-            line.setAttribute('stroke-width', this.theme.gateWidth);
-            this.svg.appendChild(line);
+            
+            const dx = end.x - start.x;
+            const dy = end.y - start.y;
+            const len = Math.sqrt(dx * dx + dy * dy);
+            const nx = -dy / len * 3;
+            const ny = dx / len * 3;
+            
+            // Gate as small rectangle
+            const gateRect = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+            const points = [
+                `${start.x + nx},${start.y + ny}`,
+                `${end.x + nx},${end.y + ny}`,
+                `${end.x - nx},${end.y - ny}`,
+                `${start.x - nx},${start.y - ny}`
+            ].join(' ');
+            gateRect.setAttribute('points', points);
+            gateRect.setAttribute('fill', 'none');
+            gateRect.setAttribute('stroke', this.theme.stroke);
+            gateRect.setAttribute('stroke-width', '1');
+            gateRect.setAttribute('opacity', '0.7');
+            this.svg.appendChild(gateRect);
         });
         
-        // Render runways (top layer)
+        // Render runways (top layer) - wide rectangular shapes with markings
         airport.runways.forEach(runway => {
-            const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
             const start = transform(runway.start);
             const end = transform(runway.end);
-            line.setAttribute('x1', start.x);
-            line.setAttribute('y1', start.y);
-            line.setAttribute('x2', end.x);
-            line.setAttribute('y2', end.y);
-            line.setAttribute('stroke', this.theme.stroke);
-            line.setAttribute('stroke-width', this.theme.runwayWidth);
-            line.setAttribute('stroke-linecap', 'round');
-            this.svg.appendChild(line);
+            
+            const dx = end.x - start.x;
+            const dy = end.y - start.y;
+            const len = Math.sqrt(dx * dx + dy * dy);
+            const nx = -dy / len;
+            const ny = dx / len;
+            
+            const runwayWidth = 45 * scale;
+            
+            // Main runway rectangle
+            const rect = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+            const points = [
+                `${start.x + nx * runwayWidth},${start.y + ny * runwayWidth}`,
+                `${end.x + nx * runwayWidth},${end.y + ny * runwayWidth}`,
+                `${end.x - nx * runwayWidth},${end.y - ny * runwayWidth}`,
+                `${start.x - nx * runwayWidth},${start.y - ny * runwayWidth}`
+            ].join(' ');
+            rect.setAttribute('points', points);
+            rect.setAttribute('fill', 'none');
+            rect.setAttribute('stroke', this.theme.stroke);
+            rect.setAttribute('stroke-width', '3');
+            this.svg.appendChild(rect);
+            
+            // Centerline (dashed)
+            const centerLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            centerLine.setAttribute('x1', start.x);
+            centerLine.setAttribute('y1', start.y);
+            centerLine.setAttribute('x2', end.x);
+            centerLine.setAttribute('y2', end.y);
+            centerLine.setAttribute('stroke', this.theme.stroke);
+            centerLine.setAttribute('stroke-width', '2');
+            centerLine.setAttribute('stroke-dasharray', `${20 * scale},${10 * scale}`);
+            centerLine.setAttribute('opacity', '0.8');
+            this.svg.appendChild(centerLine);
+            
+            // Threshold markings at both ends
+            const thresholdLength = 20 * scale;
+            const thresholdWidth = runwayWidth * 0.8;
+            
+            // Start threshold
+            const startThresh = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            startThresh.setAttribute('x1', start.x + nx * thresholdWidth);
+            startThresh.setAttribute('y1', start.y + ny * thresholdWidth);
+            startThresh.setAttribute('x2', start.x - nx * thresholdWidth);
+            startThresh.setAttribute('y2', start.y - ny * thresholdWidth);
+            startThresh.setAttribute('stroke', this.theme.stroke);
+            startThresh.setAttribute('stroke-width', '4');
+            startThresh.setAttribute('opacity', '0.7');
+            this.svg.appendChild(startThresh);
+            
+            // End threshold
+            const endThresh = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            endThresh.setAttribute('x1', end.x + nx * thresholdWidth);
+            endThresh.setAttribute('y1', end.y + ny * thresholdWidth);
+            endThresh.setAttribute('x2', end.x - nx * thresholdWidth);
+            endThresh.setAttribute('y2', end.y - ny * thresholdWidth);
+            endThresh.setAttribute('stroke', this.theme.stroke);
+            endThresh.setAttribute('stroke-width', '4');
+            endThresh.setAttribute('opacity', '0.7');
+            this.svg.appendChild(endThresh);
+            
+            // Add subtle runway shoulders
+            const shoulderWidth = runwayWidth * 1.15;
+            const shoulder = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+            const shoulderPoints = [
+                `${start.x + nx * shoulderWidth},${start.y + ny * shoulderWidth}`,
+                `${end.x + nx * shoulderWidth},${end.y + ny * shoulderWidth}`,
+                `${end.x - nx * shoulderWidth},${end.y - ny * shoulderWidth}`,
+                `${start.x - nx * shoulderWidth},${start.y - ny * shoulderWidth}`
+            ].join(' ');
+            shoulder.setAttribute('points', shoulderPoints);
+            shoulder.setAttribute('fill', 'none');
+            shoulder.setAttribute('stroke', this.theme.stroke);
+            shoulder.setAttribute('stroke-width', '0.5');
+            shoulder.setAttribute('opacity', '0.3');
+            this.svg.appendChild(shoulder);
         });
     }
 }
