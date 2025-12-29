@@ -1,3 +1,5 @@
+/* AirFrame - Procedural Airport Generator Styles */
+
 * {
     margin: 0;
     padding: 0;
@@ -5,9 +7,8 @@
 }
 
 body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: #333;
     min-height: 100vh;
     padding: 20px;
 }
@@ -17,86 +18,122 @@ body {
     margin: 0 auto;
     background: white;
     border-radius: 12px;
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
-    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    padding: 30px;
 }
 
 .header {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    padding: 30px;
     text-align: center;
+    margin-bottom: 30px;
 }
 
 .header h1 {
-    font-size: 2.5rem;
-    margin-bottom: 8px;
+    font-size: 3em;
+    color: #333;
+    margin-bottom: 10px;
     font-weight: 700;
 }
 
 .subtitle {
-    font-size: 1.1rem;
-    opacity: 0.9;
+    font-size: 1.2em;
+    color: #666;
+    margin-bottom: 5px;
+}
+
+.disclaimer {
+    font-size: 0.9em;
+    color: #999;
+    font-style: italic;
 }
 
 .controls {
-    padding: 25px 30px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 30px;
+    margin-bottom: 20px;
+}
+
+.control-section {
     background: #f8f9fa;
-    border-bottom: 1px solid #e0e0e0;
+    padding: 20px;
+    border-radius: 8px;
+}
+
+.control-section h3 {
+    color: #333;
+    margin-bottom: 15px;
+    font-size: 1.1em;
 }
 
 .control-group {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-    flex-wrap: wrap;
+    margin-bottom: 15px;
 }
 
-.control-row {
+.control-group label {
+    display: block;
+    margin-bottom: 5px;
+    color: #555;
+    font-weight: 500;
+    font-size: 0.9em;
+}
+
+.slider {
+    width: 100%;
+    height: 6px;
+    background: #ddd;
+    outline: none;
+    border-radius: 3px;
+    -webkit-appearance: none;
+}
+
+.slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    background: #667eea;
+    cursor: pointer;
+    border-radius: 50%;
+}
+
+.slider::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+    background: #667eea;
+    cursor: pointer;
+    border-radius: 50%;
+    border: none;
+}
+
+.select-field, .input-field {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 0.95em;
+    background: white;
+}
+
+.select-field:focus, .input-field:focus {
+    outline: none;
+    border-color: #667eea;
+}
+
+.button-group, .export-group {
+    grid-column: 1 / -1;
     display: flex;
     gap: 15px;
-    margin-top: 15px;
-    flex-wrap: wrap;
-}
-
-.input-field {
-    flex: 1;
-    min-width: 250px;
-    padding: 12px 16px;
-    border: 2px solid #ddd;
-    border-radius: 6px;
-    font-size: 1rem;
-    transition: border-color 0.3s;
-}
-
-.input-field:focus {
-    outline: none;
-    border-color: #667eea;
-}
-
-.select-field {
-    padding: 10px 14px;
-    border: 2px solid #ddd;
-    border-radius: 6px;
-    font-size: 0.95rem;
-    background: white;
-    cursor: pointer;
-    transition: border-color 0.3s;
-}
-
-.select-field:focus {
-    outline: none;
-    border-color: #667eea;
+    justify-content: center;
 }
 
 .btn {
-    padding: 12px 24px;
+    padding: 12px 30px;
     border: none;
     border-radius: 6px;
-    font-size: 1rem;
+    font-size: 1em;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.3s;
+    transition: all 0.3s ease;
 }
 
 .btn-primary {
@@ -106,99 +143,110 @@ body {
 
 .btn-primary:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
 }
 
 .btn-secondary {
-    background: #fff;
-    color: #667eea;
-    border: 2px solid #667eea;
-}
-
-.btn-secondary:hover {
-    background: #667eea;
+    background: #6c757d;
     color: white;
 }
 
-.btn:disabled {
-    opacity: 0.5;
+.btn-secondary:hover {
+    background: #5a6268;
+    transform: translateY(-2px);
+}
+
+.btn-export {
+    background: #28a745;
+    color: white;
+}
+
+.btn-export:hover:not(:disabled) {
+    background: #218838;
+    transform: translateY(-2px);
+}
+
+.btn-export:disabled {
+    background: #ccc;
     cursor: not-allowed;
-    transform: none;
+    opacity: 0.6;
 }
 
 .status {
-    padding: 15px 30px;
-    min-height: 50px;
-    display: flex;
-    align-items: center;
-    font-size: 0.95rem;
+    text-align: center;
+    padding: 10px;
+    margin: 15px 0;
+    border-radius: 6px;
+    font-weight: 500;
 }
 
 .status.loading {
-    color: #667eea;
-    font-weight: 500;
-}
-
-.status.error {
-    color: #dc3545;
-    font-weight: 500;
+    background: #fff3cd;
+    color: #856404;
 }
 
 .status.success {
-    color: #28a745;
-    font-weight: 500;
+    background: #d4edda;
+    color: #155724;
+}
+
+.status.error {
+    background: #f8d7da;
+    color: #721c24;
 }
 
 .canvas-container {
-    padding: 30px;
-    min-height: 500px;
+    margin-top: 20px;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #f8f9fa;
     display: flex;
     justify-content: center;
     align-items: center;
-    background: #f8f9fa;
+    min-height: 400px;
 }
 
 .airport-svg {
     max-width: 100%;
-    max-height: 800px;
-    border: 1px solid #ddd;
-    border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    height: auto;
+    display: block;
 }
 
-/* Theme-specific SVG backgrounds */
-.theme-blueprint {
-    background: #0a2463;
+/* Theme-specific SVG styles */
+.theme-blueprint rect:first-child {
+    fill: #0a2463;
 }
 
-.theme-dark {
-    background: #1a1a1a;
+.theme-dark rect:first-child {
+    fill: #1a1a1a;
 }
 
-.theme-white {
-    background: #ffffff;
+.theme-white rect:first-child {
+    fill: #ffffff;
 }
 
-label {
-    font-weight: 600;
-    color: #555;
-    margin-right: 8px;
+/* Responsive design */
+@media (max-width: 1024px) {
+    .controls {
+        grid-template-columns: 1fr;
+    }
 }
 
 @media (max-width: 768px) {
-    .header h1 {
-        font-size: 1.8rem;
+    .container {
+        padding: 20px;
     }
     
-    .control-row {
+    .header h1 {
+        font-size: 2em;
+    }
+    
+    .button-group, .export-group {
         flex-direction: column;
     }
     
-    .control-group {
+    .btn {
         width: 100%;
-    }
-    
-    .input-field {
-        min-width: 100%;
     }
 }

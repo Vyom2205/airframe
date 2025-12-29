@@ -3,6 +3,7 @@
 Thumbs.db
 *.log
 *.tmp
+*.old
 
 # Ignore node_modules if added later
 node_modules/
