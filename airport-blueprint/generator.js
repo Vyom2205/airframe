@@ -482,6 +482,18 @@ class AirportGenerator {
 }
 
 // ==================== Airport Renderer ====================
+// Blueprint rendering constants for professional airport diagrams
+const BLUEPRINT_RENDERING = {
+    PADDING: 100,
+    RUNWAY_WIDTH: 45,
+    RUNWAY_DASH_LENGTH: 20,
+    RUNWAY_DASH_GAP: 10,
+    TAXIWAY_WIDTH: 15,
+    TAXIWAY_DASH_LENGTH: 8,
+    TAXIWAY_DASH_GAP: 4,
+    GATE_WIDTH_MULTIPLIER: 3
+};
+
 class AirportRenderer {
     constructor(svgElement) {
         this.svg = svgElement;
@@ -539,7 +551,7 @@ class AirportRenderer {
     /**
      * Transform airport coordinates to SVG space
      */
-    transformToSVG(point, bounds, width, height, padding = 100) {
+    transformToSVG(point, bounds, width, height, padding = BLUEPRINT_RENDERING.PADDING) {
         const boundsWidth = bounds.maxX - bounds.minX;
         const boundsHeight = bounds.maxY - bounds.minY;
         
@@ -583,8 +595,8 @@ class AirportRenderer {
         // Calculate scale for proper sizing of blueprint details
         const boundsWidth = bounds.maxX - bounds.minX;
         const boundsHeight = bounds.maxY - bounds.minY;
-        const availableWidth = width - 200;
-        const availableHeight = height - 200;
+        const availableWidth = width - 2 * BLUEPRINT_RENDERING.PADDING;
+        const availableHeight = height - 2 * BLUEPRINT_RENDERING.PADDING;
         const scale = Math.min(availableWidth / boundsWidth, availableHeight / boundsHeight);
         
         // Render aprons (bottom layer) - large paved areas
@@ -609,7 +621,7 @@ class AirportRenderer {
             if (path.length < 2) return;
             
             // Create wide taxiway with parallel lines
-            const taxiwayWidth = 15 * scale;
+            const taxiwayWidth = BLUEPRINT_RENDERING.TAXIWAY_WIDTH * scale;
             
             for (let i = 0; i < path.length - 1; i++) {
                 const p1 = path[i];
@@ -643,7 +655,7 @@ class AirportRenderer {
                 centerLine.setAttribute('y2', p2.y);
                 centerLine.setAttribute('stroke', this.theme.stroke);
                 centerLine.setAttribute('stroke-width', '0.8');
-                centerLine.setAttribute('stroke-dasharray', `${8 * scale},${4 * scale}`);
+                centerLine.setAttribute('stroke-dasharray', `${BLUEPRINT_RENDERING.TAXIWAY_DASH_LENGTH * scale},${BLUEPRINT_RENDERING.TAXIWAY_DASH_GAP * scale}`);
                 centerLine.setAttribute('opacity', '0.6');
                 this.svg.appendChild(centerLine);
             }
@@ -672,8 +684,8 @@ class AirportRenderer {
             const dx = end.x - start.x;
             const dy = end.y - start.y;
             const len = Math.sqrt(dx * dx + dy * dy);
-            const nx = -dy / len * 3;
-            const ny = dx / len * 3;
+            const nx = -dy / len * BLUEPRINT_RENDERING.GATE_WIDTH_MULTIPLIER;
+            const ny = dx / len * BLUEPRINT_RENDERING.GATE_WIDTH_MULTIPLIER;
             
             // Gate as small rectangle
             const gateRect = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
@@ -702,7 +714,7 @@ class AirportRenderer {
             const nx = -dy / len;
             const ny = dx / len;
             
-            const runwayWidth = 45 * scale;
+            const runwayWidth = BLUEPRINT_RENDERING.RUNWAY_WIDTH * scale;
             
             // Main runway rectangle
             const rect = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
@@ -726,7 +738,7 @@ class AirportRenderer {
             centerLine.setAttribute('y2', end.y);
             centerLine.setAttribute('stroke', this.theme.stroke);
             centerLine.setAttribute('stroke-width', '2');
-            centerLine.setAttribute('stroke-dasharray', `${20 * scale},${10 * scale}`);
+            centerLine.setAttribute('stroke-dasharray', `${BLUEPRINT_RENDERING.RUNWAY_DASH_LENGTH * scale},${BLUEPRINT_RENDERING.RUNWAY_DASH_GAP * scale}`);
             centerLine.setAttribute('opacity', '0.8');
             this.svg.appendChild(centerLine);
             
