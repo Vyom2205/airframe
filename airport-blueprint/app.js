@@ -195,6 +195,233 @@ class OverpassAPI {
     }
 }
 
+// ==================== Density Enhancer ====================
+/**
+ * Procedural density enhancement for sparse airport data
+ * Generates additional visual elements while maintaining aesthetic consistency
+ * 
+ * Note: Enhanced elements are stylized, artistic, and non-navigational
+ */
+class DensityEnhancer {
+    /**
+     * Analyze and enhance airport data for visual density
+     */
+    static enhance(airportData) {
+        const enhanced = JSON.parse(JSON.stringify(airportData)); // Deep copy
+        
+        // Check if data is sparse
+        const totalElements = Object.values(airportData).reduce((sum, arr) => sum + arr.length, 0);
+        const isSparse = totalElements < 15; // Threshold for enhancement
+        
+        if (isSparse) {
+            // Generate procedural taxilanes connecting runways to terminals
+            enhanced.taxilanes = [...(enhanced.taxilanes || []), ...this.generateTaxilanes(airportData)];
+            
+            // Generate procedural buildings near terminals
+            enhanced.buildings = [...(enhanced.buildings || []), ...this.generateBuildings(airportData)];
+            
+            // Generate apron areas if missing
+            if (!enhanced.aprons || enhanced.aprons.length === 0) {
+                enhanced.aprons = this.generateAprons(airportData);
+            }
+            
+            // Generate parking positions along aprons
+            enhanced.parkingPositions = [...(enhanced.parkingPositions || []), ...this.generateParkingPositions(airportData, enhanced.aprons)];
+        }
+        
+        return enhanced;
+    }
+    
+    /**
+     * Generate procedural taxilanes connecting infrastructure
+     */
+    static generateTaxilanes(data) {
+        const taxilanes = [];
+        const idOffset = 10000; // Avoid ID conflicts
+        
+        // Connect runways to taxiways
+        if (data.runways.length > 0 && data.taxiways.length > 0) {
+            data.runways.forEach((runway, idx) => {
+                if (runway.coordinates.length >= 2) {
+                    const runwayMid = this.getMidpoint(runway.coordinates[0], runway.coordinates[runway.coordinates.length - 1]);
+                    
+                    // Find nearest taxiway
+                    const nearestTaxiway = this.findNearest(runwayMid, data.taxiways);
+                    if (nearestTaxiway) {
+                        const taxiwayMid = this.getMidpoint(nearestTaxiway.coordinates[0], nearestTaxiway.coordinates[nearestTaxiway.coordinates.length - 1]);
+                        
+                        // Create connecting taxilane with slight offset for visual interest
+                        const offset = 0.0002 * (idx % 2 === 0 ? 1 : -1);
+                        taxilanes.push({
+                            id: idOffset + idx,
+                            coordinates: [
+                                { lat: runwayMid.lat + offset, lon: runwayMid.lon },
+                                { lat: taxiwayMid.lat + offset, lon: taxiwayMid.lon }
+                            ],
+                            tags: { aeroway: 'taxilane', generated: true }
+                        });
+                    }
+                }
+            });
+        }
+        
+        return taxilanes;
+    }
+    
+    /**
+     * Generate procedural buildings near terminals
+     */
+    static generateBuildings(data) {
+        const buildings = [];
+        const idOffset = 20000;
+        
+        if (data.terminals.length > 0) {
+            data.terminals.forEach((terminal, idx) => {
+                const center = this.getCenter(terminal.coordinates);
+                
+                // Generate 2-3 small support buildings near each terminal
+                const buildingCount = 2 + Math.floor(Math.random() * 2);
+                for (let i = 0; i < buildingCount; i++) {
+                    const angle = (i / buildingCount) * Math.PI * 2;
+                    const distance = 0.0008 + Math.random() * 0.0004;
+                    const offsetLat = Math.cos(angle) * distance;
+                    const offsetLon = Math.sin(angle) * distance;
+                    
+                    const buildingSize = 0.0001 + Math.random() * 0.0001;
+                    buildings.push({
+                        id: idOffset + idx * 10 + i,
+                        coordinates: [
+                            { lat: center.lat + offsetLat, lon: center.lon + offsetLon },
+                            { lat: center.lat + offsetLat + buildingSize, lon: center.lon + offsetLon },
+                            { lat: center.lat + offsetLat + buildingSize, lon: center.lon + offsetLon + buildingSize },
+                            { lat: center.lat + offsetLat, lon: center.lon + offsetLon + buildingSize },
+                            { lat: center.lat + offsetLat, lon: center.lon + offsetLon }
+                        ],
+                        tags: { building: 'yes', generated: true }
+                    });
+                }
+            });
+        }
+        
+        return buildings;
+    }
+    
+    /**
+     * Generate procedural apron areas
+     */
+    static generateAprons(data) {
+        const aprons = [];
+        const idOffset = 30000;
+        
+        if (data.terminals.length > 0) {
+            data.terminals.forEach((terminal, idx) => {
+                const center = this.getCenter(terminal.coordinates);
+                const apronSize = 0.0015;
+                
+                // Create apron in front of terminal
+                aprons.push({
+                    id: idOffset + idx,
+                    coordinates: [
+                        { lat: center.lat - apronSize, lon: center.lon - apronSize * 1.5 },
+                        { lat: center.lat - apronSize, lon: center.lon + apronSize * 1.5 },
+                        { lat: center.lat + apronSize * 0.5, lon: center.lon + apronSize * 1.5 },
+                        { lat: center.lat + apronSize * 0.5, lon: center.lon - apronSize * 1.5 },
+                        { lat: center.lat - apronSize, lon: center.lon - apronSize * 1.5 }
+                    ],
+                    tags: { aeroway: 'apron', generated: true }
+                });
+            });
+        }
+        
+        return aprons;
+    }
+    
+    /**
+     * Generate procedural parking positions
+     */
+    static generateParkingPositions(data, aprons) {
+        const positions = [];
+        const idOffset = 40000;
+        
+        aprons.forEach((apron, apronIdx) => {
+            if (apron.coordinates.length >= 4) {
+                // Place 3-5 parking positions along apron edge
+                const count = 3 + Math.floor(Math.random() * 3);
+                for (let i = 0; i < count; i++) {
+                    const t = (i + 0.5) / count;
+                    const start = apron.coordinates[0];
+                    const end = apron.coordinates[1];
+                    
+                    const parkingLat = start.lat + (end.lat - start.lat) * t;
+                    const parkingLon = start.lon + (end.lon - start.lon) * t;
+                    const offset = 0.0001;
+                    
+                    positions.push({
+                        id: idOffset + apronIdx * 10 + i,
+                        coordinates: [
+                            { lat: parkingLat, lon: parkingLon },
+                            { lat: parkingLat + offset, lon: parkingLon + offset }
+                        ],
+                        tags: { aeroway: 'parking_position', generated: true }
+                    });
+                }
+            }
+        });
+        
+        return positions;
+    }
+    
+    /**
+     * Helper: Get midpoint between two coordinates
+     */
+    static getMidpoint(coord1, coord2) {
+        return {
+            lat: (coord1.lat + coord2.lat) / 2,
+            lon: (coord1.lon + coord2.lon) / 2
+        };
+    }
+    
+    /**
+     * Helper: Get center of coordinate array
+     */
+    static getCenter(coordinates) {
+        const sum = coordinates.reduce((acc, coord) => ({
+            lat: acc.lat + coord.lat,
+            lon: acc.lon + coord.lon
+        }), { lat: 0, lon: 0 });
+        
+        return {
+            lat: sum.lat / coordinates.length,
+            lon: sum.lon / coordinates.length
+        };
+    }
+    
+    /**
+     * Helper: Find nearest element to a coordinate
+     */
+    static findNearest(coord, elements) {
+        let nearest = null;
+        let minDist = Infinity;
+        
+        elements.forEach(element => {
+            if (element.coordinates.length > 0) {
+                const center = this.getCenter(element.coordinates);
+                const dist = Math.sqrt(
+                    Math.pow(coord.lat - center.lat, 2) + 
+                    Math.pow(coord.lon - center.lon, 2)
+                );
+                
+                if (dist < minDist) {
+                    minDist = dist;
+                    nearest = element;
+                }
+            }
+        });
+        
+        return nearest;
+    }
+}
+
 // ==================== Airport Renderer ====================
 class AirportRenderer {
     constructor(svgElement) {
@@ -390,30 +617,72 @@ class AirportRenderer {
 // ==================== Export Manager ====================
 class ExportManager {
     /**
-     * Download SVG file
+     * Add branding to SVG element
+     * Note: Outputs are stylized, artistic, and non-navigational
+     */
+    static addBranding(svgElement) {
+        const width = parseInt(svgElement.getAttribute('width'));
+        const height = parseInt(svgElement.getAttribute('height'));
+        
+        // Get current theme (check background color)
+        const background = svgElement.querySelector('rect');
+        const bgColor = background ? background.getAttribute('fill') : '#0a2463';
+        const textColor = (bgColor === '#ffffff') ? '#000000' : '#ffffff';
+        
+        // Calculate font size based on resolution
+        const fontSize = Math.max(width / 120, 16);
+        const padding = fontSize * 1.5;
+        
+        // Create text element
+        const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        text.setAttribute('x', width - padding);
+        text.setAttribute('y', height - padding);
+        text.setAttribute('text-anchor', 'end');
+        text.setAttribute('font-family', 'Arial, sans-serif');
+        text.setAttribute('font-size', fontSize);
+        text.setAttribute('fill', textColor);
+        text.setAttribute('opacity', '0.3'); // Subtle, non-distracting
+        text.textContent = 'Designed by AirFrame';
+        
+        // Add disclaimer comment
+        const comment = document.createComment(' Stylized artistic output - Non-navigational ');
+        svgElement.appendChild(comment);
+        svgElement.appendChild(text);
+    }
+    
+    /**
+     * Download SVG file with branding
      */
     static downloadSVG(svgElement, filename) {
-        const svgData = new XMLSerializer().serializeToString(svgElement);
+        // Clone SVG to avoid modifying the displayed version
+        const clone = svgElement.cloneNode(true);
+        this.addBranding(clone);
+        
+        const svgData = new XMLSerializer().serializeToString(clone);
         const blob = new Blob([svgData], { type: 'image/svg+xml' });
         this.triggerDownload(blob, filename);
     }
 
     /**
-     * Download PNG file (4K resolution)
+     * Download PNG file (4K resolution) with branding
      */
     static downloadPNG(svgElement, filename) {
         return new Promise((resolve, reject) => {
+            // Clone and add branding
+            const clone = svgElement.cloneNode(true);
+            this.addBranding(clone);
+            
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
             
             // Use SVG dimensions for 4K output
-            const width = parseInt(svgElement.getAttribute('width'));
-            const height = parseInt(svgElement.getAttribute('height'));
+            const width = parseInt(clone.getAttribute('width'));
+            const height = parseInt(clone.getAttribute('height'));
             
             canvas.width = width;
             canvas.height = height;
 
-            const svgData = new XMLSerializer().serializeToString(svgElement);
+            const svgData = new XMLSerializer().serializeToString(clone);
             const img = new Image();
             
             img.onload = () => {
@@ -531,20 +800,24 @@ class AirportApp {
 
         try {
             const data = await this.api.fetchAirportData(code);
-            this.currentAirportData = data;
+            
+            // Apply procedural density enhancement
+            const enhancedData = DensityEnhancer.enhance(data);
+            
+            this.currentAirportData = enhancedData;
             this.currentAirportCode = code.toUpperCase();
 
-            this.renderer.render(data);
+            this.renderer.render(enhancedData);
             
             // Build status message with all available elements
             const statsParts = [];
-            if (data.runways.length) statsParts.push(`${data.runways.length} runways`);
-            if (data.taxiways.length) statsParts.push(`${data.taxiways.length} taxiways`);
-            if (data.taxilanes && data.taxilanes.length) statsParts.push(`${data.taxilanes.length} taxilanes`);
-            if (data.aprons && data.aprons.length) statsParts.push(`${data.aprons.length} aprons`);
-            if (data.terminals.length) statsParts.push(`${data.terminals.length} terminals`);
-            if (data.buildings && data.buildings.length) statsParts.push(`${data.buildings.length} buildings`);
-            if (data.parkingPositions && data.parkingPositions.length) statsParts.push(`${data.parkingPositions.length} parking positions`);
+            if (enhancedData.runways.length) statsParts.push(`${enhancedData.runways.length} runways`);
+            if (enhancedData.taxiways.length) statsParts.push(`${enhancedData.taxiways.length} taxiways`);
+            if (enhancedData.taxilanes && enhancedData.taxilanes.length) statsParts.push(`${enhancedData.taxilanes.length} taxilanes`);
+            if (enhancedData.aprons && enhancedData.aprons.length) statsParts.push(`${enhancedData.aprons.length} aprons`);
+            if (enhancedData.terminals.length) statsParts.push(`${enhancedData.terminals.length} terminals`);
+            if (enhancedData.buildings && enhancedData.buildings.length) statsParts.push(`${enhancedData.buildings.length} buildings`);
+            if (enhancedData.parkingPositions && enhancedData.parkingPositions.length) statsParts.push(`${enhancedData.parkingPositions.length} parking positions`);
             
             const stats = `Loaded: ${statsParts.join(', ')}`;
             this.setStatus(stats, 'success');
