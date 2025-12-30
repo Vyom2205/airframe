@@ -351,13 +351,13 @@ class AirportGenerator {
     }
     
     /**
-     * Generate taxiways connecting runways and terminals
+     * Generate taxiways connecting runways and terminals with curved paths
      */
     generateTaxiways() {
         const density = this.config.taxiwayDensity;
         const connectionCount = density === 'high' ? 8 : density === 'medium' ? 5 : 3;
         
-        // Connect runways to terminal area
+        // Connect runways to terminal area with curved paths
         this.airport.runways.forEach((runway, idx) => {
             const runwayMid = {
                 x: (runway.start.x + runway.end.x) / 2,
@@ -384,14 +384,15 @@ class AirportGenerator {
                         y: runwayPoint.y + Math.sin(perpAngle) * offset
                     };
                     
-                    this.airport.taxiways.push({
-                        path: [startPoint, terminal.center]
-                    });
+                    // Create curved path with waypoints instead of straight line
+                    const path = this.createCurvedPath(startPoint, terminal.center, 2);
+                    
+                    this.airport.taxiways.push({ path });
                 }
             });
         });
         
-        // Add parallel taxiways along runways
+        // Add parallel taxiways along runways with slight curves
         this.airport.runways.forEach(runway => {
             const perpAngle = Math.atan2(runway.end.y - runway.start.y, runway.end.x - runway.start.x) + Math.PI / 2;
             const offset = runway.width + 50 + this.rng.range(0, 30);
@@ -401,13 +402,68 @@ class AirportGenerator {
                 y: Math.sin(perpAngle) * offset
             };
             
-            this.airport.taxiways.push({
-                path: [
-                    { x: runway.start.x + startOffset.x, y: runway.start.y + startOffset.y },
-                    { x: runway.end.x + startOffset.x, y: runway.end.y + startOffset.y }
-                ]
-            });
+            const start = { x: runway.start.x + startOffset.x, y: runway.start.y + startOffset.y };
+            const end = { x: runway.end.x + startOffset.x, y: runway.end.y + startOffset.y };
+            
+            // Add slight curve even to parallel taxiways for realism
+            const path = this.createCurvedPath(start, end, 1);
+            
+            this.airport.taxiways.push({ path });
         });
+        
+        // Add connecting taxiways between parallel runways
+        if (this.airport.runways.length > 1 && this.config.runwayConfig === 'parallel') {
+            const numConnections = density === 'high' ? 3 : density === 'medium' ? 2 : 1;
+            for (let i = 0; i < numConnections; i++) {
+                const t = (i + 1) / (numConnections + 1);
+                const runway1 = this.airport.runways[0];
+                const runway2 = this.airport.runways[this.airport.runways.length - 1];
+                
+                const p1 = {
+                    x: runway1.start.x + (runway1.end.x - runway1.start.x) * t,
+                    y: runway1.start.y + (runway1.end.y - runway1.start.y) * t
+                };
+                const p2 = {
+                    x: runway2.start.x + (runway2.end.x - runway2.start.x) * t,
+                    y: runway2.start.y + (runway2.end.y - runway2.start.y) * t
+                };
+                
+                const path = this.createCurvedPath(p1, p2, 1);
+                this.airport.taxiways.push({ path });
+            }
+        }
+    }
+    
+    /**
+     * Create a curved path with waypoints between two points
+     */
+    createCurvedPath(start, end, waypointCount) {
+        const path = [start];
+        
+        const dx = end.x - start.x;
+        const dy = end.y - start.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        // Add waypoints with perpendicular offsets to create curves
+        for (let i = 1; i <= waypointCount; i++) {
+            const t = i / (waypointCount + 1);
+            const baseX = start.x + dx * t;
+            const baseY = start.y + dy * t;
+            
+            // Calculate perpendicular offset
+            const perpAngle = Math.atan2(dy, dx) + Math.PI / 2;
+            // Create S-curve effect by alternating offset direction
+            const offsetMagnitude = (Math.sin(t * Math.PI) * distance * 0.08) * (i % 2 === 0 ? 1 : -1);
+            const curveVariation = this.rng.range(-30, 30);
+            
+            path.push({
+                x: baseX + Math.cos(perpAngle) * (offsetMagnitude + curveVariation),
+                y: baseY + Math.sin(perpAngle) * (offsetMagnitude + curveVariation)
+            });
+        }
+        
+        path.push(end);
+        return path;
     }
     
     /**
@@ -661,8 +717,9 @@ class AirportRenderer {
             }
         });
         
-        // Render terminals - filled polygon shapes with architectural detail
+        // Render terminals - filled polygon shapes with enhanced architectural detail
         airport.terminals.forEach(terminal => {
+            // Main terminal body
             const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
             const points = terminal.points.map(p => {
                 const tp = transform(p);
@@ -674,6 +731,65 @@ class AirportRenderer {
             polygon.setAttribute('stroke', this.theme.stroke);
             polygon.setAttribute('stroke-width', '2');
             this.svg.appendChild(polygon);
+            
+            // Add architectural details - glass facade segments
+            const center = transform(terminal.center);
+            const angle = terminal.angle;
+            const length = terminal.length;
+            const width = terminal.width;
+            
+            // Add facade divisions (vertical lines simulating glass panels)
+            const numDivisions = Math.floor(length / 50);
+            for (let i = 1; i < numDivisions; i++) {
+                const t = (i / numDivisions) - 0.5;
+                const divX = center.x + Math.cos(angle) * t * length * scale;
+                const divY = center.y + Math.sin(angle) * t * length * scale;
+                
+                const perpAngle = angle + Math.PI / 2;
+                const halfWidth = (width * scale) / 2;
+                
+                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                line.setAttribute('x1', divX + Math.cos(perpAngle) * halfWidth * 0.3);
+                line.setAttribute('y1', divY + Math.sin(perpAngle) * halfWidth * 0.3);
+                line.setAttribute('x2', divX - Math.cos(perpAngle) * halfWidth * 0.3);
+                line.setAttribute('y2', divY - Math.sin(perpAngle) * halfWidth * 0.3);
+                line.setAttribute('stroke', this.theme.stroke);
+                line.setAttribute('stroke-width', '0.5');
+                line.setAttribute('opacity', '0.3');
+                this.svg.appendChild(line);
+            }
+            
+            // Add entrance/canopy detail (thicker line on one side)
+            const entranceSide = 0.25; // Position along the terminal
+            const entranceX = center.x + Math.cos(angle) * (length * scale * entranceSide);
+            const entranceY = center.y + Math.sin(angle) * (length * scale * entranceSide);
+            const perpAngle = angle + Math.PI / 2;
+            const entranceWidth = (width * scale) / 2;
+            
+            const entranceLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            entranceLine.setAttribute('x1', entranceX + Math.cos(perpAngle) * entranceWidth);
+            entranceLine.setAttribute('y1', entranceY + Math.sin(perpAngle) * entranceWidth);
+            entranceLine.setAttribute('x2', entranceX - Math.cos(perpAngle) * entranceWidth);
+            entranceLine.setAttribute('y2', entranceY - Math.sin(perpAngle) * entranceWidth);
+            entranceLine.setAttribute('stroke', this.theme.stroke);
+            entranceLine.setAttribute('stroke-width', '2.5');
+            entranceLine.setAttribute('opacity', '0.5');
+            this.svg.appendChild(entranceLine);
+            
+            // Add corner accents (rounded corner effect)
+            terminal.points.forEach((point, idx) => {
+                const tp = transform(point);
+                const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                circle.setAttribute('cx', tp.x);
+                circle.setAttribute('cy', tp.y);
+                circle.setAttribute('r', '3');
+                circle.setAttribute('fill', this.theme.stroke);
+                circle.setAttribute('fill-opacity', '0.2');
+                circle.setAttribute('stroke', this.theme.stroke);
+                circle.setAttribute('stroke-width', '1');
+                circle.setAttribute('opacity', '0.4');
+                this.svg.appendChild(circle);
+            });
         });
         
         // Render gates as small protrusions
