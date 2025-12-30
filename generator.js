@@ -453,7 +453,7 @@ class AirportGenerator {
             // Calculate perpendicular offset
             const perpAngle = Math.atan2(dy, dx) + Math.PI / 2;
             // Create S-curve effect by alternating offset direction
-            const offsetMagnitude = (Math.sin(t * Math.PI) * distance * 0.08) * (i % 2 === 0 ? 1 : -1);
+            const offsetMagnitude = (Math.sin(t * Math.PI) * distance * BLUEPRINT_RENDERING.CURVE_INTENSITY) * (i % 2 === 0 ? 1 : -1);
             const curveVariation = this.rng.range(-30, 30);
             
             path.push({
@@ -547,7 +547,12 @@ const BLUEPRINT_RENDERING = {
     TAXIWAY_WIDTH: 15,
     TAXIWAY_DASH_LENGTH: 8,
     TAXIWAY_DASH_GAP: 4,
-    GATE_WIDTH_MULTIPLIER: 3
+    GATE_WIDTH_MULTIPLIER: 3,
+    // Taxiway curve generation
+    CURVE_INTENSITY: 0.08,              // Controls how pronounced the S-curves are (0.08 = 8% of distance)
+    // Terminal architectural details
+    FACADE_DIVISION_SPACING: 50,        // Spacing between glass panel divisions in terminals
+    ENTRANCE_POSITION: 0.25             // Position of entrance/canopy detail along terminal (0-1)
 };
 
 class AirportRenderer {
@@ -739,7 +744,7 @@ class AirportRenderer {
             const width = terminal.width;
             
             // Add facade divisions (vertical lines simulating glass panels)
-            const numDivisions = Math.floor(length / 50);
+            const numDivisions = Math.floor(length / BLUEPRINT_RENDERING.FACADE_DIVISION_SPACING);
             for (let i = 1; i < numDivisions; i++) {
                 const t = (i / numDivisions) - 0.5;
                 const divX = center.x + Math.cos(angle) * t * length * scale;
@@ -760,9 +765,8 @@ class AirportRenderer {
             }
             
             // Add entrance/canopy detail (thicker line on one side)
-            const entranceSide = 0.25; // Position along the terminal
-            const entranceX = center.x + Math.cos(angle) * (length * scale * entranceSide);
-            const entranceY = center.y + Math.sin(angle) * (length * scale * entranceSide);
+            const entranceX = center.x + Math.cos(angle) * (length * scale * BLUEPRINT_RENDERING.ENTRANCE_POSITION);
+            const entranceY = center.y + Math.sin(angle) * (length * scale * BLUEPRINT_RENDERING.ENTRANCE_POSITION);
             const perpAngle = angle + Math.PI / 2;
             const entranceWidth = (width * scale) / 2;
             
