@@ -65,6 +65,15 @@ class SeededRandom {
     }
 }
 
+// ==================== Airport Zoning Constants ====================
+const AIRPORT_ZONES = {
+    AIRSIDE_CLEARANCE: 500,        // Minimum distance from runways to terminals
+    TERMINAL_SPACING: 250,          // Minimum spacing between terminal structures  
+    CONCOURSE_SPACING: 180,         // Minimum spacing between concourses
+    APRON_BUFFER: 150,              // Open space around terminals
+    TAXIWAY_CORRIDOR_WIDTH: 100     // Width of main taxiway corridors
+};
+
 // ==================== Airport Generator ====================
 class AirportGenerator {
     constructor(config) {
@@ -77,28 +86,80 @@ class AirportGenerator {
             gates: [],
             aprons: []
         };
+        
+        // Spatial zones for collision detection
+        this.zones = {
+            airside: [],      // Runway exclusion zones
+            terminalCore: [], // Primary terminal zone
+            concourse: [],    // Concourse zones
+            apron: []         // Apron buffer zones
+        };
     }
     
     /**
-     * Generate complete airport layout
+     * Generate complete airport layout with structured zoning
      */
     generate() {
-        // Step 1: Generate runways as primary structural axes
+        // Step 1: Generate runways as primary structural axes (Airside Zone)
         this.generateRunways();
+        this.defineAirsideZone();
         
-        // Step 2: Generate terminal area
-        this.generateTerminals();
+        // Step 2: Generate ONE primary terminal spine (Terminal Core Zone)
+        this.generatePrimaryTerminal();
         
-        // Step 3: Generate taxiways connecting infrastructure
-        this.generateTaxiways();
+        // Step 3: Generate concourses from terminal spine (Concourse Zone)
+        this.generateConcourses();
         
-        // Step 4: Generate gates along terminals
-        this.generateGates();
-        
-        // Step 5: Generate apron areas
+        // Step 4: Generate apron buffer zones
         this.generateAprons();
         
+        // Step 5: Generate gates along concourses (evenly spaced, consistent orientation)
+        this.generateGates();
+        
+        // Step 6: Generate disciplined taxiway network
+        this.generateTaxiways();
+        
         return this.airport;
+    }
+    
+    /**
+     * Define airside exclusion zone around runways
+     */
+    defineAirsideZone() {
+        this.airport.runways.forEach(runway => {
+            this.zones.airside.push({
+                center: {
+                    x: (runway.start.x + runway.end.x) / 2,
+                    y: (runway.start.y + runway.end.y) / 2
+                },
+                length: this.distance(runway.start, runway.end),
+                width: runway.width + AIRPORT_ZONES.AIRSIDE_CLEARANCE * 2,
+                angle: Math.atan2(runway.end.y - runway.start.y, runway.end.x - runway.start.x)
+            });
+        });
+    }
+    
+    /**
+     * Check if a point is in the airside zone
+     */
+    isInAirsideZone(point) {
+        return this.zones.airside.some(zone => {
+            const dx = point.x - zone.center.x;
+            const dy = point.y - zone.center.y;
+            const rotatedX = dx * Math.cos(-zone.angle) - dy * Math.sin(-zone.angle);
+            const rotatedY = dx * Math.sin(-zone.angle) + dy * Math.cos(-zone.angle);
+            
+            return Math.abs(rotatedX) < zone.length / 2 && Math.abs(rotatedY) < zone.width / 2;
+        });
+    }
+    
+    /**
+     * Calculate distance between two points
+     */
+    distance(p1, p2) {
+        const dx = p2.x - p1.x;
+        const dy = p2.y - p1.y;
+        return Math.sqrt(dx * dx + dy * dy);
     }
     
     /**
@@ -165,35 +226,28 @@ class AirportGenerator {
     }
     
     /**
-     * Generate terminal buildings
+     * Generate ONE primary terminal spine (Terminal Core Zone)
+     * This acts as the root for all concourses
      */
-    generateTerminals() {
-        const layout = this.config.terminalLayout;
-        const gateCount = this.config.gateCount;
-        
-        // Position terminal relative to runways
-        const terminalOffset = 800 + this.rng.range(0, 400);
+    generatePrimaryTerminal() {
+        // Position terminal perpendicular to average runway angle
+        let terminalOffset = AIRPORT_ZONES.AIRSIDE_CLEARANCE + 300;
         const terminalAngle = this.getAverageRunwayAngle() + Math.PI / 2;
         
-        const terminalX = Math.cos(terminalAngle) * terminalOffset;
-        const terminalY = Math.sin(terminalAngle) * terminalOffset;
+        let terminalX = Math.cos(terminalAngle) * terminalOffset;
+        let terminalY = Math.sin(terminalAngle) * terminalOffset;
         
-        if (layout === 'linear') {
-            this.generateLinearTerminal(terminalX, terminalY, gateCount);
-        } else if (layout === 'pier') {
-            this.generatePierTerminal(terminalX, terminalY, gateCount);
-        } else if (layout === 'satellite') {
-            this.generateSatelliteTerminal(terminalX, terminalY, gateCount);
-        } else {
-            // Hybrid
-            this.generateHybridTerminal(terminalX, terminalY, gateCount);
+        // Ensure terminal is outside airside zone
+        while (this.isInAirsideZone({ x: terminalX, y: terminalY })) {
+            terminalOffset += 100;
+            terminalX = Math.cos(terminalAngle) * terminalOffset;
+            terminalY = Math.sin(terminalAngle) * terminalOffset;
         }
-    }
-    
-    generateLinearTerminal(x, y, gateCount) {
+        
+        // Create single dominant terminal spine
         const angle = this.getAverageRunwayAngle();
-        const length = gateCount * 40 + 200;
-        const width = 100;
+        const length = 400 + this.config.gateCount * 15; // Scale with gate count
+        const width = 120;
         
         const dx = Math.cos(angle) * length / 2;
         const dy = Math.sin(angle) * length / 2;
@@ -202,55 +256,76 @@ class AirportGenerator {
         
         this.airport.terminals.push({
             points: [
-                { x: x - dx - perpDx, y: y - dy - perpDy },
-                { x: x + dx - perpDx, y: y + dy - perpDy },
-                { x: x + dx + perpDx, y: y + dy + perpDy },
-                { x: x - dx + perpDx, y: y - dy + perpDy }
+                { x: terminalX - dx - perpDx, y: terminalY - dy - perpDy },
+                { x: terminalX + dx - perpDx, y: terminalY + dy - perpDy },
+                { x: terminalX + dx + perpDx, y: terminalY + dy + perpDy },
+                { x: terminalX - dx + perpDx, y: terminalY - dy + perpDy }
             ],
-            center: { x, y },
+            center: { x: terminalX, y: terminalY },
             angle,
             length,
-            width
+            width,
+            isPrimary: true
+        });
+        
+        // Mark terminal core zone
+        this.zones.terminalCore.push({
+            center: { x: terminalX, y: terminalY },
+            length,
+            width: width + AIRPORT_ZONES.TERMINAL_SPACING,
+            angle
         });
     }
     
-    generatePierTerminal(x, y, gateCount) {
-        const angle = this.getAverageRunwayAngle();
-        const mainWidth = 120;
-        const mainLength = 300;
-        const pierCount = Math.ceil(gateCount / 6);
+    /**
+     * Generate concourses extending from primary terminal
+     * Uses controlled attachment patterns based on layout type
+     */
+    generateConcourses() {
+        const layout = this.config.terminalLayout;
+        const gateCount = this.config.gateCount;
+        const primaryTerminal = this.airport.terminals[0];
         
-        // Main terminal building
-        const dx = Math.cos(angle) * mainLength / 2;
-        const dy = Math.sin(angle) * mainLength / 2;
-        const perpDx = Math.cos(angle + Math.PI / 2) * mainWidth / 2;
-        const perpDy = Math.sin(angle + Math.PI / 2) * mainWidth / 2;
-        
-        this.airport.terminals.push({
-            points: [
-                { x: x - dx - perpDx, y: y - dy - perpDy },
-                { x: x + dx - perpDx, y: y + dy - perpDy },
-                { x: x + dx + perpDx, y: y + dy + perpDy },
-                { x: x - dx + perpDx, y: y - dy + perpDy }
-            ],
-            center: { x, y },
-            angle,
-            length: mainLength,
-            width: mainWidth
-        });
-        
-        // Add piers
+        if (layout === 'linear') {
+            // Linear: No additional concourses, gates directly on main terminal
+            return;
+        } else if (layout === 'pier') {
+            this.generatePierConcourses(primaryTerminal, gateCount);
+        } else if (layout === 'satellite') {
+            this.generateSatelliteConcourses(primaryTerminal, gateCount);
+        } else {
+            // Hybrid: Combination of pier + one satellite
+            this.generateHybridConcourses(primaryTerminal, gateCount);
+        }
+    }
+    
+    /**
+     * Generate pier concourses perpendicular to main terminal
+     * Ensures equal spacing and no overlaps
+     */
+    generatePierConcourses(primaryTerminal, gateCount) {
+        const concourseCount = Math.min(Math.ceil(gateCount / 8), 4); // Max 4 piers
         const pierWidth = 40;
-        const pierLength = 200 + this.rng.range(0, 150);
-        const pierSpacing = mainLength / (pierCount + 1);
+        const pierLength = 180 + this.rng.range(0, 80);
         
-        for (let i = 0; i < pierCount; i++) {
-            const pierT = (i + 1) * pierSpacing - mainLength / 2;
-            const pierCenterX = x + Math.cos(angle) * pierT;
-            const pierCenterY = y + Math.sin(angle) * pierT;
+        // Calculate equal spacing along primary terminal
+        const usableLength = primaryTerminal.length * 0.8; // Use 80% of length
+        const spacing = usableLength / (concourseCount + 1);
+        
+        for (let i = 0; i < concourseCount; i++) {
+            // Position along primary terminal (centered distribution)
+            const offset = ((i + 1) * spacing) - (primaryTerminal.length / 2);
+            const pierCenterX = primaryTerminal.center.x + Math.cos(primaryTerminal.angle) * offset;
+            const pierCenterY = primaryTerminal.center.y + Math.sin(primaryTerminal.angle) * offset;
             
-            // Pier extends perpendicular to main terminal
-            const pierAngle = angle + Math.PI / 2;
+            // Pier extends perpendicular to main terminal (towards apron side)
+            const pierAngle = primaryTerminal.angle + Math.PI / 2;
+            const perpOffset = primaryTerminal.width / 2 + pierLength / 2;
+            
+            const finalX = pierCenterX + Math.cos(pierAngle) * perpOffset;
+            const finalY = pierCenterY + Math.sin(pierAngle) * perpOffset;
+            
+            // Build pier geometry
             const pierDx = Math.cos(pierAngle) * pierLength / 2;
             const pierDy = Math.sin(pierAngle) * pierLength / 2;
             const pierPerpDx = Math.cos(pierAngle + Math.PI / 2) * pierWidth / 2;
@@ -258,48 +333,53 @@ class AirportGenerator {
             
             this.airport.terminals.push({
                 points: [
-                    { x: pierCenterX + perpDx - pierDx - pierPerpDx, y: pierCenterY + perpDy - pierDy - pierPerpDy },
-                    { x: pierCenterX + perpDx + pierDx - pierPerpDx, y: pierCenterY + perpDy + pierDy - pierPerpDy },
-                    { x: pierCenterX + perpDx + pierDx + pierPerpDx, y: pierCenterY + perpDy + pierDy + pierPerpDy },
-                    { x: pierCenterX + perpDx - pierDx + pierPerpDx, y: pierCenterY + perpDy - pierDy + pierPerpDy }
+                    { x: finalX - pierDx - pierPerpDx, y: finalY - pierDy - pierPerpDy },
+                    { x: finalX + pierDx - pierPerpDx, y: finalY + pierDy - pierPerpDy },
+                    { x: finalX + pierDx + pierPerpDx, y: finalY + pierDy + pierPerpDy },
+                    { x: finalX - pierDx + pierPerpDx, y: finalY - pierDy + pierPerpDy }
                 ],
-                center: { x: pierCenterX, y: pierCenterY },
+                center: { x: finalX, y: finalY },
                 angle: pierAngle,
                 length: pierLength,
-                width: pierWidth
+                width: pierWidth,
+                isPrimary: false,
+                concourseIndex: i
+            });
+            
+            // Mark concourse zone for collision detection
+            this.zones.concourse.push({
+                center: { x: finalX, y: finalY },
+                length: pierLength,
+                width: pierWidth + AIRPORT_ZONES.CONCOURSE_SPACING,
+                angle: pierAngle
             });
         }
     }
     
-    generateSatelliteTerminal(x, y, gateCount) {
-        const angle = this.getAverageRunwayAngle();
+    /**
+     * Generate satellite concourses around central hub
+     * Ensures symmetric placement and no overlaps
+     */
+    generateSatelliteConcourses(primaryTerminal, gateCount) {
+        const satelliteCount = Math.min(Math.ceil(gateCount / 10), 3); // Max 3 satellites
+        const satelliteSize = 140;
+        const satelliteDistance = 400 + AIRPORT_ZONES.CONCOURSE_SPACING;
         
-        // Main terminal
-        const mainSize = 150;
-        const halfSize = mainSize / 2;
+        // Determine apron side (perpendicular to terminal, away from runways)
+        const apronAngle = primaryTerminal.angle + Math.PI / 2;
         
-        this.airport.terminals.push({
-            points: [
-                { x: x - halfSize, y: y - halfSize },
-                { x: x + halfSize, y: y - halfSize },
-                { x: x + halfSize, y: y + halfSize },
-                { x: x - halfSize, y: y + halfSize }
-            ],
-            center: { x, y },
-            angle,
-            length: mainSize,
-            width: mainSize
-        });
-        
-        // Satellite terminals
-        const satelliteCount = Math.ceil(gateCount / 8);
-        const satelliteSize = 120;
-        const satelliteDistance = 400;
+        // Place satellites symmetrically around a point offset from main terminal
+        const hubX = primaryTerminal.center.x + Math.cos(apronAngle) * (satelliteDistance / 2);
+        const hubY = primaryTerminal.center.y + Math.sin(apronAngle) * (satelliteDistance / 2);
         
         for (let i = 0; i < satelliteCount; i++) {
-            const satAngle = (i / satelliteCount) * Math.PI * 2;
-            const satX = x + Math.cos(satAngle) * satelliteDistance;
-            const satY = y + Math.sin(satAngle) * satelliteDistance;
+            // Distribute satellites in an arc (not full circle - stay on apron side)
+            const arcSpan = Math.PI * 0.8; // 144 degrees
+            const angleOffset = (arcSpan / Math.max(satelliteCount - 1, 1)) * i - arcSpan / 2;
+            const satAngle = apronAngle + angleOffset;
+            
+            const satX = hubX + Math.cos(satAngle) * satelliteDistance;
+            const satY = hubY + Math.sin(satAngle) * satelliteDistance;
             const satHalf = satelliteSize / 2;
             
             this.airport.terminals.push({
@@ -312,153 +392,259 @@ class AirportGenerator {
                 center: { x: satX, y: satY },
                 angle: satAngle,
                 length: satelliteSize,
-                width: satelliteSize
+                width: satelliteSize,
+                isPrimary: false,
+                concourseIndex: i
+            });
+            
+            this.zones.concourse.push({
+                center: { x: satX, y: satY },
+                length: satelliteSize,
+                width: satelliteSize + AIRPORT_ZONES.CONCOURSE_SPACING,
+                angle: satAngle
             });
         }
     }
     
-    generateHybridTerminal(x, y, gateCount) {
-        // Combination of linear and pier
-        const halfGates = Math.floor(gateCount / 2);
-        this.generateLinearTerminal(x, y, halfGates);
+    /**
+     * Generate hybrid layout (pier + satellite)
+     */
+    generateHybridConcourses(primaryTerminal, gateCount) {
+        // Add 1-2 piers
+        const pierCount = Math.min(Math.ceil(gateCount / 15), 2);
+        this.generatePierConcoursesLimited(primaryTerminal, pierCount);
         
-        // Add a pier section
-        const angle = this.getAverageRunwayAngle();
-        const pierOffset = 300;
-        const pierX = x + Math.cos(angle) * pierOffset;
-        const pierY = y + Math.sin(angle) * pierOffset;
-        
+        // Add 1 satellite
+        this.generateSatelliteConcoursesLimited(primaryTerminal, 1);
+    }
+    
+    generatePierConcoursesLimited(primaryTerminal, count) {
         const pierWidth = 40;
-        const pierLength = 250;
-        const pierAngle = angle + Math.PI / 2;
-        const pierDx = Math.cos(pierAngle) * pierLength / 2;
-        const pierDy = Math.sin(pierAngle) * pierLength / 2;
-        const pierPerpDx = Math.cos(pierAngle + Math.PI / 2) * pierWidth / 2;
-        const pierPerpDy = Math.sin(pierAngle + Math.PI / 2) * pierWidth / 2;
+        const pierLength = 180;
+        const spacing = primaryTerminal.length / (count + 1);
+        
+        for (let i = 0; i < count; i++) {
+            const offset = ((i + 1) * spacing) - (primaryTerminal.length / 2);
+            const pierCenterX = primaryTerminal.center.x + Math.cos(primaryTerminal.angle) * offset;
+            const pierCenterY = primaryTerminal.center.y + Math.sin(primaryTerminal.angle) * offset;
+            
+            const pierAngle = primaryTerminal.angle + Math.PI / 2;
+            const perpOffset = primaryTerminal.width / 2 + pierLength / 2;
+            
+            const finalX = pierCenterX + Math.cos(pierAngle) * perpOffset;
+            const finalY = pierCenterY + Math.sin(pierAngle) * perpOffset;
+            
+            const pierDx = Math.cos(pierAngle) * pierLength / 2;
+            const pierDy = Math.sin(pierAngle) * pierLength / 2;
+            const pierPerpDx = Math.cos(pierAngle + Math.PI / 2) * pierWidth / 2;
+            const pierPerpDy = Math.sin(pierAngle + Math.PI / 2) * pierWidth / 2;
+            
+            this.airport.terminals.push({
+                points: [
+                    { x: finalX - pierDx - pierPerpDx, y: finalY - pierDy - pierPerpDy },
+                    { x: finalX + pierDx - pierPerpDx, y: finalY + pierDy - pierPerpDy },
+                    { x: finalX + pierDx + pierPerpDx, y: finalY + pierDy + pierPerpDy },
+                    { x: finalX - pierDx + pierPerpDx, y: finalY - pierDy + pierPerpDy }
+                ],
+                center: { x: finalX, y: finalY },
+                angle: pierAngle,
+                length: pierLength,
+                width: pierWidth,
+                isPrimary: false
+            });
+        }
+    }
+    
+    generateSatelliteConcoursesLimited(primaryTerminal, count) {
+        const satelliteSize = 140;
+        const satelliteDistance = 450;
+        const apronAngle = primaryTerminal.angle + Math.PI / 2;
+        
+        const satX = primaryTerminal.center.x + Math.cos(apronAngle) * satelliteDistance;
+        const satY = primaryTerminal.center.y + Math.sin(apronAngle) * satelliteDistance;
+        const satHalf = satelliteSize / 2;
         
         this.airport.terminals.push({
             points: [
-                { x: pierX - pierDx - pierPerpDx, y: pierY - pierDy - pierPerpDy },
-                { x: pierX + pierDx - pierPerpDx, y: pierY + pierDy - pierPerpDy },
-                { x: pierX + pierDx + pierPerpDx, y: pierY + pierDy + pierPerpDy },
-                { x: pierX - pierDx + pierPerpDx, y: pierY - pierDy + pierPerpDy }
+                { x: satX - satHalf, y: satY - satHalf },
+                { x: satX + satHalf, y: satY - satHalf },
+                { x: satX + satHalf, y: satY + satHalf },
+                { x: satX - satHalf, y: satY + satHalf }
             ],
-            center: { x: pierX, y: pierY },
-            angle: pierAngle,
-            length: pierLength,
-            width: pierWidth
+            center: { x: satX, y: satY },
+            angle: apronAngle,
+            length: satelliteSize,
+            width: satelliteSize,
+            isPrimary: false
         });
     }
     
     /**
-     * Generate taxiways connecting runways and terminals with curved paths
+     * Generate disciplined taxiway network with main corridors
+     * Follows rules: runways → apron → terminals, smooth curves, no random crossings
      */
     generateTaxiways() {
         const density = this.config.taxiwayDensity;
-        const connectionCount = density === 'high' ? 8 : density === 'medium' ? 5 : 3;
+        const primaryTerminal = this.airport.terminals[0];
+        const apronAngle = primaryTerminal.angle + Math.PI / 2;
         
-        // Connect runways to terminal area with curved paths
-        this.airport.runways.forEach((runway, idx) => {
-            const runwayMid = {
-                x: (runway.start.x + runway.end.x) / 2,
-                y: (runway.start.y + runway.end.y) / 2
-            };
-            
-            this.airport.terminals.forEach(terminal => {
-                // Create connecting taxiway
-                const connections = Math.floor(connectionCount / this.airport.runways.length) + 1;
-                
-                for (let i = 0; i < connections; i++) {
-                    const t = (i + 0.5) / connections;
-                    const runwayPoint = {
-                        x: runway.start.x + (runway.end.x - runway.start.x) * t,
-                        y: runway.start.y + (runway.end.y - runway.start.y) * t
-                    };
-                    
-                    // Offset slightly from runway
-                    const perpAngle = Math.atan2(runway.end.y - runway.start.y, runway.end.x - runway.start.x) + Math.PI / 2;
-                    const offset = runway.width + 30;
-                    
-                    const startPoint = {
-                        x: runwayPoint.x + Math.cos(perpAngle) * offset,
-                        y: runwayPoint.y + Math.sin(perpAngle) * offset
-                    };
-                    
-                    // Create curved path with waypoints instead of straight line
-                    const path = this.createCurvedPath(startPoint, terminal.center, 2);
-                    
-                    this.airport.taxiways.push({ path });
-                }
-            });
-        });
+        // Step 1: Create main taxiway corridors parallel to runways
+        this.generateParallelTaxiwayCorridors();
         
-        // Add parallel taxiways along runways with slight curves
-        this.airport.runways.forEach(runway => {
-            const perpAngle = Math.atan2(runway.end.y - runway.start.y, runway.end.x - runway.start.x) + Math.PI / 2;
-            const offset = runway.width + 50 + this.rng.range(0, 30);
-            
-            const startOffset = {
-                x: Math.cos(perpAngle) * offset,
-                y: Math.sin(perpAngle) * offset
-            };
-            
-            const start = { x: runway.start.x + startOffset.x, y: runway.start.y + startOffset.y };
-            const end = { x: runway.end.x + startOffset.x, y: runway.end.y + startOffset.y };
-            
-            // Add slight curve even to parallel taxiways for realism
-            const path = this.createCurvedPath(start, end, 1);
-            
-            this.airport.taxiways.push({ path });
-        });
+        // Step 2: Create perpendicular connectors from runways to apron
+        this.generateRunwayToApronConnectors(apronAngle, density);
         
-        // Add connecting taxiways between parallel runways
-        if (this.airport.runways.length > 1 && this.config.runwayConfig === 'parallel') {
-            const numConnections = density === 'high' ? 3 : density === 'medium' ? 2 : 1;
-            for (let i = 0; i < numConnections; i++) {
-                const t = (i + 1) / (numConnections + 1);
-                const runway1 = this.airport.runways[0];
-                const runway2 = this.airport.runways[this.airport.runways.length - 1];
-                
-                const p1 = {
-                    x: runway1.start.x + (runway1.end.x - runway1.start.x) * t,
-                    y: runway1.start.y + (runway1.end.y - runway1.start.y) * t
-                };
-                const p2 = {
-                    x: runway2.start.x + (runway2.end.x - runway2.start.x) * t,
-                    y: runway2.start.y + (runway2.end.y - runway2.start.y) * t
-                };
-                
-                const path = this.createCurvedPath(p1, p2, 1);
-                this.airport.taxiways.push({ path });
-            }
+        // Step 3: Create apron perimeter taxiways
+        this.generateApronPerimeterTaxiways(apronAngle);
+        
+        // Step 4: For high density, add one additional parallel corridor
+        if (density === 'high') {
+            this.generateSecondaryTaxiwayCorridor();
         }
     }
     
     /**
-     * Create a curved path with waypoints between two points
+     * Generate main taxiway corridors parallel to runways
      */
-    createCurvedPath(start, end, waypointCount) {
+    generateParallelTaxiwayCorridors() {
+        this.airport.runways.forEach(runway => {
+            const runwayAngle = Math.atan2(runway.end.y - runway.start.y, runway.end.x - runway.start.x);
+            const perpAngle = runwayAngle + Math.PI / 2;
+            
+            // Place corridor on apron side (away from crossing runways)
+            const offset = runway.width + 80;
+            const offsetX = Math.cos(perpAngle) * offset;
+            const offsetY = Math.sin(perpAngle) * offset;
+            
+            const start = { 
+                x: runway.start.x + offsetX, 
+                y: runway.start.y + offsetY 
+            };
+            const end = { 
+                x: runway.end.x + offsetX, 
+                y: runway.end.y + offsetY 
+            };
+            
+            // Main corridors are mostly straight with very subtle curve
+            const path = this.createSmoothCurve(start, end, 1, 0.02);
+            this.airport.taxiways.push({ path, isCorridor: true });
+        });
+    }
+    
+    /**
+     * Generate perpendicular connectors from runway corridors to apron
+     */
+    generateRunwayToApronConnectors(apronAngle, density) {
+        const connectionCount = density === 'high' ? 4 : density === 'medium' ? 3 : 2;
+        const primaryTerminal = this.airport.terminals[0];
+        
+        // Calculate apron entry point (front of terminal complex)
+        const apronEntry = {
+            x: primaryTerminal.center.x - Math.cos(apronAngle) * (primaryTerminal.width / 2 + AIRPORT_ZONES.APRON_BUFFER),
+            y: primaryTerminal.center.y - Math.sin(apronAngle) * (primaryTerminal.width / 2 + AIRPORT_ZONES.APRON_BUFFER)
+        };
+        
+        // Create smooth connections from each runway corridor to apron
+        this.airport.runways.forEach((runway, idx) => {
+            const runwayAngle = Math.atan2(runway.end.y - runway.start.y, runway.end.x - runway.start.x);
+            const perpAngle = runwayAngle + Math.PI / 2;
+            const offset = runway.width + 80;
+            
+            for (let i = 0; i < connectionCount; i++) {
+                const t = (i + 0.5) / connectionCount;
+                const corridorPoint = {
+                    x: runway.start.x + (runway.end.x - runway.start.x) * t + Math.cos(perpAngle) * offset,
+                    y: runway.start.y + (runway.end.y - runway.start.y) * t + Math.sin(perpAngle) * offset
+                };
+                
+                // Create smooth S-curve to apron
+                const path = this.createSmoothCurve(corridorPoint, apronEntry, 2, 0.12);
+                this.airport.taxiways.push({ path, isConnector: true });
+            }
+        });
+    }
+    
+    /**
+     * Generate taxiways around apron perimeter
+     */
+    generateApronPerimeterTaxiways(apronAngle) {
+        const primaryTerminal = this.airport.terminals[0];
+        const apronWidth = primaryTerminal.length * 1.2;
+        const apronDepth = AIRPORT_ZONES.APRON_BUFFER * 2;
+        
+        // Front edge of apron (parallel to terminal)
+        const frontOffset = primaryTerminal.width / 2 + apronDepth / 2;
+        const frontCenter = {
+            x: primaryTerminal.center.x + Math.cos(apronAngle) * frontOffset,
+            y: primaryTerminal.center.y + Math.sin(apronAngle) * frontOffset
+        };
+        
+        const halfWidth = apronWidth / 2;
+        const start = {
+            x: frontCenter.x - Math.cos(primaryTerminal.angle) * halfWidth,
+            y: frontCenter.y - Math.sin(primaryTerminal.angle) * halfWidth
+        };
+        const end = {
+            x: frontCenter.x + Math.cos(primaryTerminal.angle) * halfWidth,
+            y: frontCenter.y + Math.sin(primaryTerminal.angle) * halfWidth
+        };
+        
+        // Slight curve for organic feel
+        const path = this.createSmoothCurve(start, end, 1, 0.03);
+        this.airport.taxiways.push({ path, isApronEdge: true });
+    }
+    
+    /**
+     * Generate secondary parallel corridor for high density
+     */
+    generateSecondaryTaxiwayCorridor() {
+        if (this.airport.runways.length === 0) return;
+        
+        const runway = this.airport.runways[0];
+        const runwayAngle = Math.atan2(runway.end.y - runway.start.y, runway.end.x - runway.start.x);
+        const perpAngle = runwayAngle + Math.PI / 2;
+        
+        // Place secondary corridor further from runway
+        const offset = runway.width + 200;
+        const offsetX = Math.cos(perpAngle) * offset;
+        const offsetY = Math.sin(perpAngle) * offset;
+        
+        const start = { 
+            x: runway.start.x + offsetX, 
+            y: runway.start.y + offsetY 
+        };
+        const end = { 
+            x: runway.end.x + offsetX, 
+            y: runway.end.y + offsetY 
+        };
+        
+        const path = this.createSmoothCurve(start, end, 1, 0.02);
+        this.airport.taxiways.push({ path, isCorridor: true });
+    }
+    
+    /**
+     * Create smooth curve with controlled waypoints (replaces old random curve method)
+     * intensity: controls curve amplitude (0.02 = subtle, 0.12 = moderate)
+     */
+    createSmoothCurve(start, end, waypointCount, intensity) {
         const path = [start];
         
         const dx = end.x - start.x;
         const dy = end.y - start.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
+        const perpAngle = Math.atan2(dy, dx) + Math.PI / 2;
         
-        // Add waypoints with perpendicular offsets to create curves
         for (let i = 1; i <= waypointCount; i++) {
             const t = i / (waypointCount + 1);
             const baseX = start.x + dx * t;
             const baseY = start.y + dy * t;
             
-            // Calculate perpendicular offset
-            const perpAngle = Math.atan2(dy, dx) + Math.PI / 2;
-            // Create S-curve effect by alternating offset direction
-            const offsetMagnitude = (Math.sin(t * Math.PI) * distance * BLUEPRINT_RENDERING.CURVE_INTENSITY) * (i % 2 === 0 ? 1 : -1);
-            const curveVariation = this.rng.range(-30, 30);
+            // Smooth sinusoidal curve (no random variation)
+            const offsetMagnitude = Math.sin(t * Math.PI) * distance * intensity;
             
             path.push({
-                x: baseX + Math.cos(perpAngle) * (offsetMagnitude + curveVariation),
-                y: baseY + Math.sin(perpAngle) * (offsetMagnitude + curveVariation)
+                x: baseX + Math.cos(perpAngle) * offsetMagnitude,
+                y: baseY + Math.sin(perpAngle) * offsetMagnitude
             });
         }
         
@@ -467,30 +653,53 @@ class AirportGenerator {
     }
     
     /**
-     * Generate gates along terminals
+     * Generate gates along terminals with even spacing and consistent orientation
+     * All gates face the apron side (perpendicular to concourse)
      */
     generateGates() {
-        const gatesPerTerminal = Math.ceil(this.config.gateCount / this.airport.terminals.length);
+        const totalGates = this.config.gateCount;
+        let gatesAssigned = 0;
+        
+        // Guard against no terminals
+        if (this.airport.terminals.length === 0) {
+            console.warn('No terminals available for gate placement');
+            return;
+        }
+        
+        // Distribute gates across all terminals (primary + concourses)
+        const gatesPerTerminal = Math.ceil(totalGates / this.airport.terminals.length);
         
         this.airport.terminals.forEach(terminal => {
-            const gateSpacing = terminal.length / (gatesPerTerminal + 1);
+            if (gatesAssigned >= totalGates) return;
             
-            for (let i = 0; i < gatesPerTerminal && this.airport.gates.length < this.config.gateCount; i++) {
-                const t = (i + 1) * gateSpacing - terminal.length / 2;
-                const gateX = terminal.center.x + Math.cos(terminal.angle) * t;
-                const gateY = terminal.center.y + Math.sin(terminal.angle) * t;
+            const gatesForThisTerminal = Math.min(gatesPerTerminal, totalGates - gatesAssigned);
+            const gateSpacing = terminal.length / (gatesForThisTerminal + 1);
+            
+            for (let i = 0; i < gatesForThisTerminal; i++) {
+                // Calculate position along terminal edge
+                const t = ((i + 1) * gateSpacing) - (terminal.length / 2);
+                const edgeX = terminal.center.x + Math.cos(terminal.angle) * t;
+                const edgeY = terminal.center.y + Math.sin(terminal.angle) * t;
                 
-                // Gates extend perpendicular from terminal
-                const perpAngle = terminal.angle + Math.PI / 2;
-                const gateLength = 30 + this.rng.range(0, 20);
+                // Gates extend perpendicular from terminal TOWARDS APRON (consistent orientation)
+                const gateAngle = terminal.angle + Math.PI / 2;
+                const gateLength = 35;  // Consistent length
+                const gateOffset = terminal.width / 2; // Start from terminal edge
+                
+                const gateStartX = edgeX + Math.cos(gateAngle) * gateOffset;
+                const gateStartY = edgeY + Math.sin(gateAngle) * gateOffset;
                 
                 this.airport.gates.push({
-                    start: { x: gateX, y: gateY },
+                    start: { x: gateStartX, y: gateStartY },
                     end: {
-                        x: gateX + Math.cos(perpAngle) * gateLength,
-                        y: gateY + Math.sin(perpAngle) * gateLength
-                    }
+                        x: gateStartX + Math.cos(gateAngle) * gateLength,
+                        y: gateStartY + Math.sin(gateAngle) * gateLength
+                    },
+                    angle: gateAngle,  // Store angle for consistent orientation
+                    terminalIndex: this.airport.terminals.indexOf(terminal)
                 });
+                
+                gatesAssigned++;
             }
         });
     }
@@ -540,7 +749,7 @@ class AirportGenerator {
 // ==================== Airport Renderer ====================
 // Blueprint rendering constants for professional airport diagrams
 const BLUEPRINT_RENDERING = {
-    PADDING: 100,
+    PADDING: 300,  // Increased from 100 to 300 for wallpaper aesthetics - more breathing room
     RUNWAY_WIDTH: 45,
     RUNWAY_DASH_LENGTH: 20,
     RUNWAY_DASH_GAP: 10,
@@ -548,8 +757,6 @@ const BLUEPRINT_RENDERING = {
     TAXIWAY_DASH_LENGTH: 8,
     TAXIWAY_DASH_GAP: 4,
     GATE_WIDTH_MULTIPLIER: 3,
-    // Taxiway curve generation
-    CURVE_INTENSITY: 0.08,              // Controls how pronounced the S-curves are (0.08 = 8% of distance)
     // Terminal architectural details
     FACADE_DIVISION_SPACING: 50,        // Spacing between glass panel divisions in terminals
     ENTRANCE_POSITION: 0.25             // Position of entrance/canopy detail along terminal (0-1)
