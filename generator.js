@@ -516,18 +516,23 @@ class AirportGenerator {
     
     /**
      * Define key nodes along runways for taxiway exits/entries
+     * Distributed along runway length to mimic real large airports (5-8 exits per runway)
      */
     defineRunwayNodes() {
         this.runwayExitNodes = [];
+        const density = this.config.taxiwayDensity;
+        
+        // More exit points for realistic distribution - no convergence at single points
+        const exitCount = density === 'high' ? 8 : density === 'medium' ? 6 : 5;
         
         this.airport.runways.forEach((runway, rwIdx) => {
             const runwayAngle = Math.atan2(runway.end.y - runway.start.y, runway.end.x - runway.start.x);
             const perpAngle = runwayAngle + Math.PI / 2;
             
-            // Place exit nodes along runway at regular intervals
-            const exitCount = 3; // Start, middle, end
+            // Place exit nodes along runway at regular intervals (distributed, not clustered)
             for (let i = 0; i < exitCount; i++) {
-                const t = i / (exitCount - 1);
+                // Distribute evenly but avoid the very start/end (0.05 to 0.95)
+                const t = 0.05 + (i / (exitCount - 1)) * 0.9;
                 const runwayPoint = {
                     x: runway.start.x + (runway.end.x - runway.start.x) * t,
                     y: runway.start.y + (runway.end.y - runway.start.y) * t
@@ -540,7 +545,8 @@ class AirportGenerator {
                     y: runwayPoint.y + Math.sin(perpAngle) * offset,
                     type: 'runwayExit',
                     runwayIndex: rwIdx,
-                    position: t
+                    position: t,
+                    exitIndex: i
                 };
                 
                 this.runwayExitNodes.push(node);
@@ -584,15 +590,17 @@ class AirportGenerator {
     
     /**
      * Create main taxiway corridors forming grid backbone (parallel to runways)
+     * Multiple parallel corridors with proper spacing - mimics real large airport layouts
      */
     createMainCorridorGrid(density) {
-        const corridorCount = density === 'high' ? 2 : 1;
+        // Real airports have 2-3 parallel taxiways along runways
+        const corridorCount = density === 'high' ? 3 : density === 'medium' ? 2 : 2;
         
         this.airport.runways.forEach((runway, rwIdx) => {
             const runwayAngle = Math.atan2(runway.end.y - runway.start.y, runway.end.x - runway.start.x);
             const perpAngle = runwayAngle + Math.PI / 2;
             
-            // Create parallel corridors at different offsets
+            // Create parallel corridors at different offsets with proper spacing
             for (let c = 0; c < corridorCount; c++) {
                 const offset = runway.width + 60 + (c * AIRPORT_ZONES.TAXIWAY_GRID_SPACING);
                 const offsetX = Math.cos(perpAngle) * offset;
@@ -629,46 +637,69 @@ class AirportGenerator {
     
     /**
      * Create perpendicular connectors from corridors to apron at clean intervals
+     * Distributes connections across multiple runway exits - not converging at single points
      */
     createPerpendicularConnectors(density) {
         const connectionCount = density === 'high' ? 4 : density === 'medium' ? 3 : 2;
         
-        // For each apron entry node, create perpendicular connectors to runway corridors
+        // Strategy: Connect apron nodes to distributed runway exit nodes
+        // Avoids all taxiways converging at one point
         this.apronEntryNodes.forEach((apronNode, idx) => {
             // Skip some connections for lower density
             if (density === 'low' && idx % 2 === 0) return;
             if (density === 'medium' && idx === 0) return;
             
-            // Find nearest runway exit nodes and create connectors
-            this.runwayExitNodes.forEach((runwayNode, rwIdx) => {
-                // Only connect to nearby runway nodes (not all combinations)
-                const dist = this.distance(apronNode, runwayNode);
-                if (dist < 800) { // Maximum connection distance
-                    // Create intermediate nodes for right-angle connection
-                    const midX = (apronNode.x + runwayNode.x) / 2;
-                    const midNode = {
-                        x: midX,
-                        y: runwayNode.y,
-                        type: 'intersection'
-                    };
-                    
-                    this.taxiwayNodes.push(midNode);
-                    
-                    // Create two perpendicular segments
-                    this.taxiwaySegments.push({
-                        start: runwayNode,
-                        end: midNode,
-                        type: 'connector',
-                        needsRounding: true
-                    });
-                    
-                    this.taxiwaySegments.push({
-                        start: midNode,
-                        end: apronNode,
-                        type: 'connector',
-                        needsRounding: true
-                    });
+            // Find nearest runway exit nodes but distribute connections
+            // Group runway exits by runway to ensure distribution
+            const exitsByRunway = {};
+            this.runwayExitNodes.forEach(node => {
+                if (!exitsByRunway[node.runwayIndex]) {
+                    exitsByRunway[node.runwayIndex] = [];
                 }
+                exitsByRunway[node.runwayIndex].push(node);
+            });
+            
+            // Connect to the closest 1-2 exits per runway (not all exits)
+            Object.keys(exitsByRunway).forEach(rwIdx => {
+                const exits = exitsByRunway[rwIdx];
+                
+                // Find closest exit on this runway
+                const distances = exits.map(exit => ({
+                    exit,
+                    dist: this.distance(apronNode, exit)
+                }));
+                distances.sort((a, b) => a.dist - b.dist);
+                
+                // Connect to 1-2 closest exits (depending on density)
+                const connectCount = density === 'high' ? 2 : 1;
+                distances.slice(0, connectCount).forEach(({exit, dist}) => {
+                    if (dist < 1000) { // Maximum connection distance
+                        // Create intermediate node for right-angle connection
+                        const midX = (apronNode.x + exit.x) / 2;
+                        const midNode = {
+                            x: midX,
+                            y: exit.y,
+                            type: 'intersection'
+                        };
+                        
+                        this.taxiwayNodes.push(midNode);
+                        
+                        // Create two perpendicular segments
+                        this.taxiwaySegments.push({
+                            start: exit,
+                            end: midNode,
+                            type: 'connector',
+                            needsRounding: true
+                        });
+                        
+                        this.taxiwaySegments.push({
+                            start: midNode,
+                            end: apronNode,
+                            type: 'connector',
+                            needsRounding: true
+                        });
+                    }
+                });
             });
         });
     }
