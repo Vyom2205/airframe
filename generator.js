@@ -253,6 +253,15 @@ class AirportGenerator {
         const length = 400 + this.config.gateCount * 15; // Scale with gate count
         const width = 120;
         
+        // Determine gate orientation: gates should face TOWARD runway center (apron side)
+        // If terminal is positioned in positive perpendicular direction, gates face negative (toward origin)
+        // Calculate which side faces the runways
+        const vectorToRunway = { x: -terminalX, y: -terminalY };  // Vector from terminal to origin/runway center
+        const perpVector = { x: Math.cos(angle + Math.PI / 2), y: Math.sin(angle + Math.PI / 2) };
+        // Dot product determines if gates should face +perp or -perp direction
+        const dotProduct = vectorToRunway.x * perpVector.x + vectorToRunway.y * perpVector.y;
+        const gateDirection = dotProduct > 0 ? 1 : -1;  // +1 means gates extend in +perp direction, -1 means -perp
+        
         const dx = Math.cos(angle) * length / 2;
         const dy = Math.sin(angle) * length / 2;
         const perpDx = Math.cos(angle + Math.PI / 2) * width / 2;
@@ -269,7 +278,8 @@ class AirportGenerator {
             angle,
             length,
             width,
-            isPrimary: true
+            isPrimary: true,
+            gateDirection  // Store which side gates should face (toward runways)
         });
         
         // Mark terminal core zone
@@ -323,7 +333,9 @@ class AirportGenerator {
             const pierCenterY = primaryTerminal.center.y + Math.sin(primaryTerminal.angle) * offset;
             
             // Pier extends perpendicular to main terminal (towards apron side)
-            const pierAngle = primaryTerminal.angle + Math.PI / 2;
+            // Use same gate direction as primary terminal
+            const direction = primaryTerminal.gateDirection || 1;
+            const pierAngle = primaryTerminal.angle + (Math.PI / 2) * direction;
             const perpOffset = primaryTerminal.width / 2 + pierLength / 2;
             
             const finalX = pierCenterX + Math.cos(pierAngle) * perpOffset;
@@ -347,7 +359,8 @@ class AirportGenerator {
                 length: pierLength,
                 width: pierWidth,
                 isPrimary: false,
-                concourseIndex: i
+                concourseIndex: i,
+                gateDirection: direction  // Inherit gate direction from primary terminal
             });
             
             // Mark concourse zone for collision detection
@@ -370,7 +383,9 @@ class AirportGenerator {
         const satelliteDistance = 400 + AIRPORT_ZONES.CONCOURSE_SPACING;
         
         // Determine apron side (perpendicular to terminal, away from runways)
-        const apronAngle = primaryTerminal.angle + Math.PI / 2;
+        // Use same gate direction as primary terminal
+        const direction = primaryTerminal.gateDirection || 1;
+        const apronAngle = primaryTerminal.angle + (Math.PI / 2) * direction;
         
         // Place satellites symmetrically around a point offset from main terminal
         const hubX = primaryTerminal.center.x + Math.cos(apronAngle) * (satelliteDistance / 2);
@@ -398,7 +413,8 @@ class AirportGenerator {
                 length: satelliteSize,
                 width: satelliteSize,
                 isPrimary: false,
-                concourseIndex: i
+                concourseIndex: i,
+                gateDirection: direction  // Inherit gate direction from primary terminal
             });
             
             this.zones.concourse.push({
@@ -426,13 +442,14 @@ class AirportGenerator {
         const pierWidth = 40;
         const pierLength = 180;
         const spacing = primaryTerminal.length / (count + 1);
+        const direction = primaryTerminal.gateDirection || 1;
         
         for (let i = 0; i < count; i++) {
             const offset = ((i + 1) * spacing) - (primaryTerminal.length / 2);
             const pierCenterX = primaryTerminal.center.x + Math.cos(primaryTerminal.angle) * offset;
             const pierCenterY = primaryTerminal.center.y + Math.sin(primaryTerminal.angle) * offset;
             
-            const pierAngle = primaryTerminal.angle + Math.PI / 2;
+            const pierAngle = primaryTerminal.angle + (Math.PI / 2) * direction;
             const perpOffset = primaryTerminal.width / 2 + pierLength / 2;
             
             const finalX = pierCenterX + Math.cos(pierAngle) * perpOffset;
@@ -454,7 +471,8 @@ class AirportGenerator {
                 angle: pierAngle,
                 length: pierLength,
                 width: pierWidth,
-                isPrimary: false
+                isPrimary: false,
+                gateDirection: direction
             });
         }
     }
@@ -462,7 +480,8 @@ class AirportGenerator {
     generateSatelliteConcoursesLimited(primaryTerminal, count) {
         const satelliteSize = 140;
         const satelliteDistance = 450;
-        const apronAngle = primaryTerminal.angle + Math.PI / 2;
+        const direction = primaryTerminal.gateDirection || 1;
+        const apronAngle = primaryTerminal.angle + (Math.PI / 2) * direction;
         
         const satX = primaryTerminal.center.x + Math.cos(apronAngle) * satelliteDistance;
         const satY = primaryTerminal.center.y + Math.sin(apronAngle) * satelliteDistance;
@@ -479,7 +498,8 @@ class AirportGenerator {
             angle: apronAngle,
             length: satelliteSize,
             width: satelliteSize,
-            isPrimary: false
+            isPrimary: false,
+            gateDirection: direction
         });
     }
     
@@ -810,7 +830,9 @@ class AirportGenerator {
                 const edgeY = terminal.center.y + Math.sin(terminal.angle) * t;
                 
                 // Gates extend perpendicular from terminal TOWARDS APRON (consistent orientation)
-                const gateAngle = terminal.angle + Math.PI / 2;
+                // Use gateDirection if available (determines which side faces runways)
+                const direction = terminal.gateDirection || 1;  // Default to +1 if not set
+                const gateAngle = terminal.angle + (Math.PI / 2) * direction;
                 const gateLength = 35;  // Consistent length
                 const gateOffset = terminal.width / 2; // Start from terminal edge
                 
