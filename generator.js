@@ -74,7 +74,8 @@ const AIRPORT_ZONES = {
     TAXIWAY_CORRIDOR_WIDTH: 100,    // Width of main taxiway corridors
     TAXIWAY_GRID_SPACING: 120,      // Spacing between parallel taxiways in grid
     TAXIWAY_LANE_WIDTH: 25,         // Visual width of taxiway lane
-    CORNER_RADIUS: 40                // Radius for rounded taxiway corners
+    CORNER_RADIUS: 40,               // Radius for rounded taxiway corners
+    MAX_TAXIWAY_CONNECTION_DIST: 1000  // Maximum distance for taxiway connections
 };
 
 // ==================== Airport Generator ====================
@@ -520,7 +521,7 @@ class AirportGenerator {
      */
     defineRunwayNodes() {
         this.runwayExitNodes = [];
-        const density = this.config.taxiwayDensity;
+        const density = this.config.taxiwayDensity || 'medium'; // Fallback to medium if not set
         
         // More exit points for realistic distribution - no convergence at single points
         const exitCount = density === 'high' ? 8 : density === 'medium' ? 6 : 5;
@@ -594,7 +595,8 @@ class AirportGenerator {
      */
     createMainCorridorGrid(density) {
         // Real airports have 2-3 parallel taxiways along runways
-        const corridorCount = density === 'high' ? 3 : density === 'medium' ? 2 : 2;
+        // Explicitly handle each density case for clarity
+        const corridorCount = density === 'high' ? 3 : (density === 'medium' ? 2 : 1);
         
         this.airport.runways.forEach((runway, rwIdx) => {
             const runwayAngle = Math.atan2(runway.end.y - runway.start.y, runway.end.x - runway.start.x);
@@ -673,7 +675,7 @@ class AirportGenerator {
                 // Connect to 1-2 closest exits (depending on density)
                 const connectCount = density === 'high' ? 2 : 1;
                 distances.slice(0, connectCount).forEach(({exit, dist}) => {
-                    if (dist < 1000) { // Maximum connection distance
+                    if (dist < AIRPORT_ZONES.MAX_TAXIWAY_CONNECTION_DIST) {
                         // Create intermediate node for right-angle connection
                         const midX = (apronNode.x + exit.x) / 2;
                         const midNode = {
