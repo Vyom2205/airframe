@@ -71,7 +71,10 @@ const AIRPORT_ZONES = {
     TERMINAL_SPACING: 250,          // Minimum spacing between terminal structures  
     CONCOURSE_SPACING: 180,         // Minimum spacing between concourses
     APRON_BUFFER: 150,              // Open space around terminals
-    TAXIWAY_CORRIDOR_WIDTH: 100     // Width of main taxiway corridors
+    TAXIWAY_CORRIDOR_WIDTH: 100,    // Width of main taxiway corridors
+    TAXIWAY_GRID_SPACING: 120,      // Spacing between parallel taxiways in grid
+    TAXIWAY_LANE_WIDTH: 25,         // Visual width of taxiway lane
+    CORNER_RADIUS: 40                // Radius for rounded taxiway corners
 };
 
 // ==================== Airport Generator ====================
@@ -480,172 +483,264 @@ class AirportGenerator {
     }
     
     /**
-     * Generate disciplined taxiway network with main corridors
-     * Follows rules: runways → apron → terminals, smooth curves, no random crossings
+     * Generate structured grid-based taxiway network with rounded corners
+     * Implements node-based system inspired by classic airport diagrams (1955 JFK style)
+     * Features: Main corridors parallel to runways, perpendicular connectors, rounded intersections
      */
     generateTaxiways() {
         const density = this.config.taxiwayDensity;
         const primaryTerminal = this.airport.terminals[0];
-        const apronAngle = primaryTerminal.angle + Math.PI / 2;
         
-        // Step 1: Create main taxiway corridors parallel to runways
-        this.generateParallelTaxiwayCorridors();
+        // Initialize taxiway node network
+        this.taxiwayNodes = [];
+        this.taxiwaySegments = [];
         
-        // Step 2: Create perpendicular connectors from runways to apron
-        this.generateRunwayToApronConnectors(apronAngle, density);
+        // Step 1: Define runway exit/entry nodes
+        this.defineRunwayNodes();
         
-        // Step 3: Create apron perimeter taxiways
-        this.generateApronPerimeterTaxiways(apronAngle);
+        // Step 2: Define apron entry nodes (front of terminals)
+        this.defineApronNodes();
         
-        // Step 4: For high density, add one additional parallel corridor
-        if (density === 'high') {
-            this.generateSecondaryTaxiwayCorridor();
-        }
+        // Step 3: Create grid backbone - main corridors parallel to runways
+        this.createMainCorridorGrid(density);
+        
+        // Step 4: Create perpendicular connectors at clean intervals
+        this.createPerpendicularConnectors(density);
+        
+        // Step 5: Create apron perimeter taxiways
+        this.createApronPerimeterTaxiways();
+        
+        // Step 6: Convert segments to paths with rounded corners
+        this.buildTaxiwayPathsWithRoundedCorners();
     }
     
     /**
-     * Generate main taxiway corridors parallel to runways
+     * Define key nodes along runways for taxiway exits/entries
      */
-    generateParallelTaxiwayCorridors() {
-        this.airport.runways.forEach(runway => {
+    defineRunwayNodes() {
+        this.runwayExitNodes = [];
+        
+        this.airport.runways.forEach((runway, rwIdx) => {
             const runwayAngle = Math.atan2(runway.end.y - runway.start.y, runway.end.x - runway.start.x);
             const perpAngle = runwayAngle + Math.PI / 2;
             
-            // Place corridor on apron side (away from crossing runways)
-            const offset = runway.width + 80;
-            const offsetX = Math.cos(perpAngle) * offset;
-            const offsetY = Math.sin(perpAngle) * offset;
-            
-            const start = { 
-                x: runway.start.x + offsetX, 
-                y: runway.start.y + offsetY 
-            };
-            const end = { 
-                x: runway.end.x + offsetX, 
-                y: runway.end.y + offsetY 
-            };
-            
-            // Main corridors are mostly straight with very subtle curve
-            const path = this.createSmoothCurve(start, end, 1, 0.02);
-            this.airport.taxiways.push({ path, isCorridor: true });
-        });
-    }
-    
-    /**
-     * Generate perpendicular connectors from runway corridors to apron
-     */
-    generateRunwayToApronConnectors(apronAngle, density) {
-        const connectionCount = density === 'high' ? 4 : density === 'medium' ? 3 : 2;
-        const primaryTerminal = this.airport.terminals[0];
-        
-        // Calculate apron entry point (front of terminal complex)
-        const apronEntry = {
-            x: primaryTerminal.center.x - Math.cos(apronAngle) * (primaryTerminal.width / 2 + AIRPORT_ZONES.APRON_BUFFER),
-            y: primaryTerminal.center.y - Math.sin(apronAngle) * (primaryTerminal.width / 2 + AIRPORT_ZONES.APRON_BUFFER)
-        };
-        
-        // Create smooth connections from each runway corridor to apron
-        this.airport.runways.forEach((runway, idx) => {
-            const runwayAngle = Math.atan2(runway.end.y - runway.start.y, runway.end.x - runway.start.x);
-            const perpAngle = runwayAngle + Math.PI / 2;
-            const offset = runway.width + 80;
-            
-            for (let i = 0; i < connectionCount; i++) {
-                const t = (i + 0.5) / connectionCount;
-                const corridorPoint = {
-                    x: runway.start.x + (runway.end.x - runway.start.x) * t + Math.cos(perpAngle) * offset,
-                    y: runway.start.y + (runway.end.y - runway.start.y) * t + Math.sin(perpAngle) * offset
+            // Place exit nodes along runway at regular intervals
+            const exitCount = 3; // Start, middle, end
+            for (let i = 0; i < exitCount; i++) {
+                const t = i / (exitCount - 1);
+                const runwayPoint = {
+                    x: runway.start.x + (runway.end.x - runway.start.x) * t,
+                    y: runway.start.y + (runway.end.y - runway.start.y) * t
                 };
                 
-                // Create smooth S-curve to apron
-                const path = this.createSmoothCurve(corridorPoint, apronEntry, 2, 0.12);
-                this.airport.taxiways.push({ path, isConnector: true });
+                // Offset to taxiway side
+                const offset = runway.width + 60;
+                const node = {
+                    x: runwayPoint.x + Math.cos(perpAngle) * offset,
+                    y: runwayPoint.y + Math.sin(perpAngle) * offset,
+                    type: 'runwayExit',
+                    runwayIndex: rwIdx,
+                    position: t
+                };
+                
+                this.runwayExitNodes.push(node);
+                this.taxiwayNodes.push(node);
             }
         });
     }
     
     /**
-     * Generate taxiways around apron perimeter
+     * Define nodes at apron entry points (front of terminals)
      */
-    generateApronPerimeterTaxiways(apronAngle) {
+    defineApronNodes() {
+        this.apronEntryNodes = [];
         const primaryTerminal = this.airport.terminals[0];
+        const apronAngle = primaryTerminal.angle + Math.PI / 2;
+        
+        // Calculate apron front edge
+        const apronDepth = AIRPORT_ZONES.APRON_BUFFER;
         const apronWidth = primaryTerminal.length * 1.2;
-        const apronDepth = AIRPORT_ZONES.APRON_BUFFER * 2;
         
-        // Front edge of apron (parallel to terminal)
-        const frontOffset = primaryTerminal.width / 2 + apronDepth / 2;
-        const frontCenter = {
-            x: primaryTerminal.center.x + Math.cos(apronAngle) * frontOffset,
-            y: primaryTerminal.center.y + Math.sin(apronAngle) * frontOffset
+        const apronCenter = {
+            x: primaryTerminal.center.x + Math.cos(apronAngle) * (primaryTerminal.width / 2 + apronDepth),
+            y: primaryTerminal.center.y + Math.sin(apronAngle) * (primaryTerminal.width / 2 + apronDepth)
         };
         
-        const halfWidth = apronWidth / 2;
-        const start = {
-            x: frontCenter.x - Math.cos(primaryTerminal.angle) * halfWidth,
-            y: frontCenter.y - Math.sin(primaryTerminal.angle) * halfWidth
-        };
-        const end = {
-            x: frontCenter.x + Math.cos(primaryTerminal.angle) * halfWidth,
-            y: frontCenter.y + Math.sin(primaryTerminal.angle) * halfWidth
-        };
-        
-        // Slight curve for organic feel
-        const path = this.createSmoothCurve(start, end, 1, 0.03);
-        this.airport.taxiways.push({ path, isApronEdge: true });
+        // Create nodes along apron edge at regular intervals
+        const nodeCount = 5;
+        for (let i = 0; i < nodeCount; i++) {
+            const t = (i / (nodeCount - 1)) - 0.5;
+            const node = {
+                x: apronCenter.x + Math.cos(primaryTerminal.angle) * apronWidth * t,
+                y: apronCenter.y + Math.sin(primaryTerminal.angle) * apronWidth * t,
+                type: 'apronEntry',
+                position: i
+            };
+            
+            this.apronEntryNodes.push(node);
+            this.taxiwayNodes.push(node);
+        }
     }
     
     /**
-     * Generate secondary parallel corridor for high density
+     * Create main taxiway corridors forming grid backbone (parallel to runways)
      */
-    generateSecondaryTaxiwayCorridor() {
-        if (this.airport.runways.length === 0) return;
+    createMainCorridorGrid(density) {
+        const corridorCount = density === 'high' ? 2 : 1;
         
-        const runway = this.airport.runways[0];
-        const runwayAngle = Math.atan2(runway.end.y - runway.start.y, runway.end.x - runway.start.x);
-        const perpAngle = runwayAngle + Math.PI / 2;
-        
-        // Place secondary corridor further from runway
-        const offset = runway.width + 200;
-        const offsetX = Math.cos(perpAngle) * offset;
-        const offsetY = Math.sin(perpAngle) * offset;
-        
-        const start = { 
-            x: runway.start.x + offsetX, 
-            y: runway.start.y + offsetY 
-        };
-        const end = { 
-            x: runway.end.x + offsetX, 
-            y: runway.end.y + offsetY 
-        };
-        
-        const path = this.createSmoothCurve(start, end, 1, 0.02);
-        this.airport.taxiways.push({ path, isCorridor: true });
+        this.airport.runways.forEach((runway, rwIdx) => {
+            const runwayAngle = Math.atan2(runway.end.y - runway.start.y, runway.end.x - runway.start.x);
+            const perpAngle = runwayAngle + Math.PI / 2;
+            
+            // Create parallel corridors at different offsets
+            for (let c = 0; c < corridorCount; c++) {
+                const offset = runway.width + 60 + (c * AIRPORT_ZONES.TAXIWAY_GRID_SPACING);
+                const offsetX = Math.cos(perpAngle) * offset;
+                const offsetY = Math.sin(perpAngle) * offset;
+                
+                const corridorStart = {
+                    x: runway.start.x + offsetX,
+                    y: runway.start.y + offsetY,
+                    type: 'corridor',
+                    corridorIndex: c,
+                    runwayIndex: rwIdx
+                };
+                
+                const corridorEnd = {
+                    x: runway.end.x + offsetX,
+                    y: runway.end.y + offsetY,
+                    type: 'corridor',
+                    corridorIndex: c,
+                    runwayIndex: rwIdx
+                };
+                
+                this.taxiwayNodes.push(corridorStart, corridorEnd);
+                
+                // Create straight segment for corridor
+                this.taxiwaySegments.push({
+                    start: corridorStart,
+                    end: corridorEnd,
+                    type: 'corridor',
+                    isStraight: true
+                });
+            }
+        });
     }
     
     /**
-     * Create smooth curve with controlled waypoints (replaces old random curve method)
-     * intensity: controls curve amplitude (0.02 = subtle, 0.12 = moderate)
+     * Create perpendicular connectors from corridors to apron at clean intervals
      */
-    createSmoothCurve(start, end, waypointCount, intensity) {
+    createPerpendicularConnectors(density) {
+        const connectionCount = density === 'high' ? 4 : density === 'medium' ? 3 : 2;
+        
+        // For each apron entry node, create perpendicular connectors to runway corridors
+        this.apronEntryNodes.forEach((apronNode, idx) => {
+            // Skip some connections for lower density
+            if (density === 'low' && idx % 2 === 0) return;
+            if (density === 'medium' && idx === 0) return;
+            
+            // Find nearest runway exit nodes and create connectors
+            this.runwayExitNodes.forEach((runwayNode, rwIdx) => {
+                // Only connect to nearby runway nodes (not all combinations)
+                const dist = this.distance(apronNode, runwayNode);
+                if (dist < 800) { // Maximum connection distance
+                    // Create intermediate nodes for right-angle connection
+                    const midX = (apronNode.x + runwayNode.x) / 2;
+                    const midNode = {
+                        x: midX,
+                        y: runwayNode.y,
+                        type: 'intersection'
+                    };
+                    
+                    this.taxiwayNodes.push(midNode);
+                    
+                    // Create two perpendicular segments
+                    this.taxiwaySegments.push({
+                        start: runwayNode,
+                        end: midNode,
+                        type: 'connector',
+                        needsRounding: true
+                    });
+                    
+                    this.taxiwaySegments.push({
+                        start: midNode,
+                        end: apronNode,
+                        type: 'connector',
+                        needsRounding: true
+                    });
+                }
+            });
+        });
+    }
+    
+    /**
+     * Create taxiways around apron perimeter (parallel to terminal)
+     */
+    createApronPerimeterTaxiways() {
+        // Connect apron entry nodes in sequence
+        for (let i = 0; i < this.apronEntryNodes.length - 1; i++) {
+            this.taxiwaySegments.push({
+                start: this.apronEntryNodes[i],
+                end: this.apronEntryNodes[i + 1],
+                type: 'apronEdge',
+                isStraight: true
+            });
+        }
+    }
+    
+    /**
+     * Build final taxiway paths with rounded corners at intersections
+     * Implements Bezier curves for smooth rounded transitions
+     */
+    buildTaxiwayPathsWithRoundedCorners() {
+        this.airport.taxiways = [];
+        
+        this.taxiwaySegments.forEach(segment => {
+            if (segment.isStraight) {
+                // Simple straight path
+                this.airport.taxiways.push({
+                    path: [segment.start, segment.end],
+                    type: segment.type
+                });
+            } else if (segment.needsRounding) {
+                // Create path with rounded corner at intersection
+                const path = this.createRoundedCornerPath(segment.start, segment.end);
+                this.airport.taxiways.push({
+                    path: path,
+                    type: segment.type
+                });
+            } else {
+                // Default smooth curve
+                const path = [segment.start, segment.end];
+                this.airport.taxiways.push({
+                    path: path,
+                    type: segment.type
+                });
+            }
+        });
+    }
+    
+    /**
+     * Create path with rounded corner using arc/Bezier curve
+     */
+    createRoundedCornerPath(start, end) {
         const path = [start];
         
+        // Calculate direction vectors
         const dx = end.x - start.x;
         const dy = end.y - start.y;
-        const distance = Math.sqrt(dx * dx + dy * dy);
-        const perpAngle = Math.atan2(dy, dx) + Math.PI / 2;
+        const dist = Math.sqrt(dx * dx + dy * dy);
         
-        for (let i = 1; i <= waypointCount; i++) {
-            const t = i / (waypointCount + 1);
-            const baseX = start.x + dx * t;
-            const baseY = start.y + dy * t;
-            
-            // Smooth sinusoidal curve (no random variation)
-            const offsetMagnitude = Math.sin(t * Math.PI) * distance * intensity;
-            
-            path.push({
-                x: baseX + Math.cos(perpAngle) * offsetMagnitude,
-                y: baseY + Math.sin(perpAngle) * offsetMagnitude
-            });
+        // For longer segments, add intermediate points with subtle curves
+        if (dist > 200) {
+            const segments = Math.floor(dist / 150);
+            for (let i = 1; i < segments; i++) {
+                const t = i / segments;
+                path.push({
+                    x: start.x + dx * t,
+                    y: start.y + dy * t
+                });
+            }
         }
         
         path.push(end);
@@ -1210,6 +1305,11 @@ class AirFrameApp {
             document.getElementById('runwayCountValue').textContent = e.target.value;
         });
         
+        // Terminal count slider
+        document.getElementById('terminalCount').addEventListener('input', (e) => {
+            document.getElementById('terminalCountValue').textContent = e.target.value;
+        });
+        
         // Gate count slider
         document.getElementById('gateCount').addEventListener('input', (e) => {
             document.getElementById('gateCountValue').textContent = e.target.value;
@@ -1273,6 +1373,7 @@ class AirFrameApp {
             const config = {
                 runwayCount: parseInt(document.getElementById('runwayCount').value),
                 runwayConfig: document.getElementById('runwayConfig').value,
+                terminalCount: parseInt(document.getElementById('terminalCount').value), // TODO: Implement multi-terminal generation
                 terminalLayout: document.getElementById('terminalLayout').value,
                 gateCount: parseInt(document.getElementById('gateCount').value),
                 taxiwayDensity: document.getElementById('taxiwayDensity').value,
@@ -1297,6 +1398,9 @@ class AirFrameApp {
         
         const configs = ['parallel', 'crossing', 'random'];
         document.getElementById('runwayConfig').value = configs[Math.floor(Math.random() * configs.length)];
+        
+        document.getElementById('terminalCount').value = Math.floor(Math.random() * 4) + 1;
+        document.getElementById('terminalCountValue').textContent = document.getElementById('terminalCount').value;
         
         const layouts = ['linear', 'pier', 'satellite', 'hybrid'];
         document.getElementById('terminalLayout').value = layouts[Math.floor(Math.random() * layouts.length)];
