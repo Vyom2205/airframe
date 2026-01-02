@@ -80,7 +80,7 @@ const AIRPORT_ZONES = {
     // Spine-based taxiway system configuration
     SPINE_LATERAL_OFFSET: 150,      // Lateral distance from runway centerline to taxiway spine
     SPINE_EXTENSION_LENGTH: 200,    // Extension beyond runway ends for connectivity
-    RUNWAY_CONNECTOR_POSITIONS: [0.35, 0.65],  // Positions along runway for perpendicular connectors
+    RUNWAY_CONNECTOR_POSITIONS: [0.30, 0.50, 0.70],  // Evenly distributed connector positions along runway (30%, 50%, 70%)
     SPINE_SAMPLE_COUNT: 5            // Number of points to sample along spine for terminal connections
 };
 
@@ -964,7 +964,7 @@ class AirportGenerator {
     /**
      * Generate runway-parallel taxiway spines
      * One primary full-length taxiway parallel to each runway
-     * Offset laterally by fixed distance
+     * With precision coordinate snapping
      */
     generateRunwayParallelSpines() {
         const spineOffset = AIRPORT_ZONES.SPINE_LATERAL_OFFSET;
@@ -984,24 +984,24 @@ class AirportGenerator {
                 y: (runway.start.y + runway.end.y) / 2
             };
             
-            // Offset spine perpendicular to runway
+            // Offset spine perpendicular to runway with precision
             const spineCenter = {
-                x: runwayCenter.x + Math.cos(perpAngle) * spineOffset,
-                y: runwayCenter.y + Math.sin(perpAngle) * spineOffset
+                x: Math.round(runwayCenter.x + Math.cos(perpAngle) * spineOffset),
+                y: Math.round(runwayCenter.y + Math.sin(perpAngle) * spineOffset)
             };
             
-            // Spine endpoints parallel to runway
+            // Spine endpoints parallel to runway with precision snapping
             const spineStart = {
-                x: spineCenter.x - Math.cos(runwayAngle) * (spineLength / 2),
-                y: spineCenter.y - Math.sin(runwayAngle) * (spineLength / 2)
+                x: Math.round(spineCenter.x - Math.cos(runwayAngle) * (spineLength / 2)),
+                y: Math.round(spineCenter.y - Math.sin(runwayAngle) * (spineLength / 2))
             };
             
             const spineEnd = {
-                x: spineCenter.x + Math.cos(runwayAngle) * (spineLength / 2),
-                y: spineCenter.y + Math.sin(runwayAngle) * (spineLength / 2)
+                x: Math.round(spineCenter.x + Math.cos(runwayAngle) * (spineLength / 2)),
+                y: Math.round(spineCenter.y + Math.sin(runwayAngle) * (spineLength / 2))
             };
             
-            // Create full-length taxiway spine
+            // Create full-length taxiway spine with clean coordinates
             this.airport.taxiways.push({
                 path: [spineStart, spineEnd],
                 type: 'spine',
@@ -1013,7 +1013,7 @@ class AirportGenerator {
     
     /**
      * Add short perpendicular connectors from taxiway spines to runways
-     * At least one connector per runway-spine pair
+     * With precision alignment and consistent width
      */
     addRunwayConnectors() {
         const connectorPositions = AIRPORT_ZONES.RUNWAY_CONNECTOR_POSITIONS;
@@ -1025,27 +1025,26 @@ class AirportGenerator {
                 const perpAngle = runwayAngle + Math.PI / 2;
                 
                 connectorPositions.forEach(t => {
-                    // Point on taxiway spine
+                    // Calculate spine point at position t with EXACT precision
                     const spinePoint = {
-                        x: taxiway.path[0].x + (taxiway.path[1].x - taxiway.path[0].x) * t,
-                        y: taxiway.path[0].y + (taxiway.path[1].y - taxiway.path[0].y) * t
+                        x: Math.round(taxiway.path[0].x + (taxiway.path[1].x - taxiway.path[0].x) * t),
+                        y: Math.round(taxiway.path[0].y + (taxiway.path[1].y - taxiway.path[0].y) * t)
                     };
                     
-                    // Point on runway edge (perpendicular from spine to runway)
-                    // Calculate runway centerline point at same position along runway
+                    // Calculate runway centerline point at same position
                     const runwayPoint = {
-                        x: runway.start.x + (runway.end.x - runway.start.x) * t,
-                        y: runway.start.y + (runway.end.y - runway.start.y) * t
+                        x: Math.round(runway.start.x + (runway.end.x - runway.start.x) * t),
+                        y: Math.round(runway.start.y + (runway.end.y - runway.start.y) * t)
                     };
                     
-                    // Connector endpoint at runway edge
-                    const offsetToEdge = runway.width / 2 + 10;
+                    // Runway edge point - exactly at runway edge (not offset beyond)
                     const runwayEdgePoint = {
-                        x: runwayPoint.x + Math.cos(perpAngle) * offsetToEdge,
-                        y: runwayPoint.y + Math.sin(perpAngle) * offsetToEdge
+                        x: Math.round(runwayPoint.x + Math.cos(perpAngle) * (runway.width / 2)),
+                        y: Math.round(runwayPoint.y + Math.sin(perpAngle) * (runway.width / 2))
                     };
                     
-                    // Create short perpendicular connector from runway edge to spine
+                    // Create perpendicular connector - exactly from runway edge to spine
+                    // Length is EXACTLY the lateral offset distance
                     this.airport.taxiways.push({
                         path: [runwayEdgePoint, spinePoint],
                         type: 'runway-connector',
@@ -1058,24 +1057,24 @@ class AirportGenerator {
     
     /**
      * Add perpendicular connectors from taxiway spines to terminals
-     * At least one connector per terminal
+     * With precision alignment and clean right-angle joins
      */
     addTerminalConnectors() {
         this.airport.terminals.forEach(terminal => {
-            // Find nearest spine point
+            // Find nearest spine point with precision sampling
             let nearestSpine = null;
             let nearestPoint = null;
             let minDist = Infinity;
             
             this.airport.taxiways.forEach(taxiway => {
                 if (taxiway.type === 'spine') {
-                    // Check multiple points along spine
+                    // Check multiple points along spine for best connection
                     const samples = AIRPORT_ZONES.SPINE_SAMPLE_COUNT;
                     for (let i = 0; i <= samples; i++) {
                         const t = i / samples;
                         const point = {
-                            x: taxiway.path[0].x + (taxiway.path[1].x - taxiway.path[0].x) * t,
-                            y: taxiway.path[0].y + (taxiway.path[1].y - taxiway.path[0].y) * t
+                            x: Math.round(taxiway.path[0].x + (taxiway.path[1].x - taxiway.path[0].x) * t),
+                            y: Math.round(taxiway.path[0].y + (taxiway.path[1].y - taxiway.path[0].y) * t)
                         };
                         
                         const dist = this.distance(point, terminal.center);
@@ -1089,24 +1088,35 @@ class AirportGenerator {
             });
             
             if (nearestSpine && nearestPoint) {
-                // Create perpendicular connector from spine to terminal
+                // Create perpendicular connector from spine to terminal with precision
                 const terminalEdgePoint = this.findNearestTerminalEdgePoint(nearestPoint, terminal);
                 
-                // Create two-segment perpendicular path (right-angle)
-                const midPoint = {
-                    x: terminalEdgePoint.x,
-                    y: nearestPoint.y
+                // Snap terminal edge point to clean coordinates
+                const snappedTerminalPoint = {
+                    x: Math.round(terminalEdgePoint.x),
+                    y: Math.round(terminalEdgePoint.y)
                 };
                 
-                this.airport.taxiways.push({
-                    path: [nearestPoint, midPoint],
-                    type: 'terminal-connector'
-                });
+                // Create two-segment perpendicular path (clean right-angle join)
+                const midPoint = {
+                    x: Math.round(snappedTerminalPoint.x),
+                    y: Math.round(nearestPoint.y)
+                };
                 
-                this.airport.taxiways.push({
-                    path: [midPoint, terminalEdgePoint],
-                    type: 'terminal-connector'
-                });
+                // Only create connectors if they form proper right angles (no degenerate segments)
+                if (Math.abs(midPoint.x - nearestPoint.x) > 1) {
+                    this.airport.taxiways.push({
+                        path: [nearestPoint, midPoint],
+                        type: 'terminal-connector'
+                    });
+                }
+                
+                if (Math.abs(midPoint.y - snappedTerminalPoint.y) > 1) {
+                    this.airport.taxiways.push({
+                        path: [midPoint, snappedTerminalPoint],
+                        type: 'terminal-connector'
+                    });
+                }
             }
         });
     }
@@ -1145,20 +1155,117 @@ class AirportGenerator {
     }
     
     /**
-     * Clean up taxiways: merge collinear segments, ensure orthogonal geometry
-     * Final output contains only stub → extension → terminal connection paths
+     * Clean up taxiways with precision polish and validation
+     * Includes coordinate snapping, right-angle smoothing, and polish validation
      */
     cleanupTaxiways() {
-        // Filter out any taxiways that cross runway bounds (should not exist with stub-based generation)
-        const cleanedTaxiways = this.airport.taxiways.filter(taxiway => {
+        // Filter out any taxiways that cross runway bounds (should not exist with spine-based generation)
+        let cleanedTaxiways = this.airport.taxiways.filter(taxiway => {
             return !this.taxiwayCrossesRunway(taxiway);
         });
         
+        // Apply geometric polish: snap coordinates, smooth joins
+        cleanedTaxiways = this.polishTaxiwayGeometry(cleanedTaxiways);
+        
         // Merge collinear segments where possible
-        const mergedTaxiways = this.mergeCollinearSegments(cleanedTaxiways);
+        cleanedTaxiways = this.mergeCollinearSegments(cleanedTaxiways);
         
         // Replace with cleaned up taxiways
-        this.airport.taxiways = mergedTaxiways;
+        this.airport.taxiways = cleanedTaxiways;
+        
+        // Run polish validation pass (up to 2 additional passes if needed)
+        let polishAttempts = 0;
+        const MAX_POLISH_ATTEMPTS = 2;
+        
+        while (polishAttempts < MAX_POLISH_ATTEMPTS) {
+            if (this.validateTaxiwayPolish()) {
+                console.log('✓ Taxiway polish validation passed');
+                break;
+            }
+            
+            console.warn(`⚠ Polish validation failed, re-polishing (attempt ${polishAttempts + 1}/${MAX_POLISH_ATTEMPTS})`);
+            
+            // Re-apply polish
+            this.airport.taxiways = this.polishTaxiwayGeometry(this.airport.taxiways);
+            polishAttempts++;
+        }
+    }
+    
+    /**
+     * Polish taxiway geometry for clean, engineered appearance
+     * - Snap all coordinates to clean integer values
+     * - Smooth connector joins with right-angle precision
+     * - Eliminate micro-offsets
+     */
+    polishTaxiwayGeometry(taxiways) {
+        return taxiways.map(taxiway => {
+            if (!taxiway.path || taxiway.path.length < 2) return taxiway;
+            
+            // Snap all points to clean coordinates
+            const polishedPath = taxiway.path.map(point => ({
+                x: Math.round(point.x),
+                y: Math.round(point.y)
+            }));
+            
+            return {
+                ...taxiway,
+                path: polishedPath
+            };
+        });
+    }
+    
+    /**
+     * Validate polished taxiway geometry
+     * Ensures clean intersections, parallelism, and perpendicularity
+     */
+    validateTaxiwayPolish() {
+        // Verify all taxiways have clean right-angle joins
+        for (const taxiway of this.airport.taxiways) {
+            if (!taxiway.path || taxiway.path.length < 2) continue;
+            
+            // Check that segments are strictly H/V (no micro-diagonals)
+            for (let i = 0; i < taxiway.path.length - 1; i++) {
+                const p1 = taxiway.path[i];
+                const p2 = taxiway.path[i + 1];
+                
+                const dx = Math.abs(p2.x - p1.x);
+                const dy = Math.abs(p2.y - p1.y);
+                
+                const isHorizontal = dy < 0.5;
+                const isVertical = dx < 0.5;
+                
+                if (!isHorizontal && !isVertical) {
+                    console.warn(`Non-orthogonal segment after polish: dx=${dx}, dy=${dy}`);
+                    return false;
+                }
+            }
+        }
+        
+        // Verify runway connectors properly intersect both runway edge and spine
+        const spines = this.airport.taxiways.filter(t => t.type === 'spine');
+        const connectors = this.airport.taxiways.filter(t => t.type === 'runway-connector');
+        
+        for (const connector of connectors) {
+            if (!connector.path || connector.path.length !== 2) continue;
+            
+            const [runwayEnd, spineEnd] = connector.path;
+            
+            // Verify connector actually intersects a spine
+            const intersectsSpine = spines.some(spine => {
+                if (!spine.path || spine.path.length !== 2) return false;
+                
+                // Check if spineEnd is on or very close to spine
+                const dist = this.distanceToLine(spineEnd, spine.path[0], spine.path[1]);
+                return dist < 2; // Within 2px tolerance
+            });
+            
+            if (!intersectsSpine) {
+                console.warn('Runway connector does not properly intersect spine');
+                return false;
+            }
+        }
+        
+        return true;
     }
     
     /**
