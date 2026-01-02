@@ -1024,22 +1024,12 @@ class AirportRenderer {
                 ].join(' ');
                 rect.setAttribute('points', points);
                 rect.setAttribute('fill', this.theme.stroke);
-                rect.setAttribute('fill-opacity', '0.15');
+                rect.setAttribute('fill-opacity', '0.25');
                 rect.setAttribute('stroke', this.theme.stroke);
                 rect.setAttribute('stroke-width', '1.5');
                 this.svg.appendChild(rect);
                 
-                // Add center line (dashed)
-                const centerLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-                centerLine.setAttribute('x1', p1.x);
-                centerLine.setAttribute('y1', p1.y);
-                centerLine.setAttribute('x2', p2.x);
-                centerLine.setAttribute('y2', p2.y);
-                centerLine.setAttribute('stroke', this.theme.stroke);
-                centerLine.setAttribute('stroke-width', '0.8');
-                centerLine.setAttribute('stroke-dasharray', `${BLUEPRINT_RENDERING.TAXIWAY_DASH_LENGTH * scale},${BLUEPRINT_RENDERING.TAXIWAY_DASH_GAP * scale}`);
-                centerLine.setAttribute('opacity', '0.6');
-                this.svg.appendChild(centerLine);
+                // Centerlines removed - they created cross artifacts at intersections
             }
         });
         
