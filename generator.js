@@ -1574,13 +1574,23 @@ class AirportRenderer {
                     `${p1.x - nx * taxiwayWidth},${p1.y - ny * taxiwayWidth}`
                 ].join(' ');
                 rect.setAttribute('points', points);
-                rect.setAttribute('fill', '#ffffff');
-                rect.setAttribute('fill-opacity', '1.0');
+                rect.setAttribute('fill', this.theme.stroke);
+                rect.setAttribute('fill-opacity', '0.08');
                 rect.setAttribute('stroke', 'none');
                 rect.setAttribute('stroke-width', '0');
                 this.svg.appendChild(rect);
                 
-                // Centerlines removed - they created cross artifacts at intersections
+                // Add subtle centerline marking (thin dashed line)
+                const centerLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                centerLine.setAttribute('x1', tp1.x);
+                centerLine.setAttribute('y1', tp1.y);
+                centerLine.setAttribute('x2', tp2.x);
+                centerLine.setAttribute('y2', tp2.y);
+                centerLine.setAttribute('stroke', this.theme.stroke);
+                centerLine.setAttribute('stroke-width', '0.8');
+                centerLine.setAttribute('stroke-dasharray', `${8 * scale},${6 * scale}`);
+                centerLine.setAttribute('opacity', '0.3');
+                this.svg.appendChild(centerLine);
             }
         });
         
@@ -1594,9 +1604,9 @@ class AirportRenderer {
             }).join(' ');
             polygon.setAttribute('points', points);
             polygon.setAttribute('fill', this.theme.stroke);
-            polygon.setAttribute('fill-opacity', '0.1');
+            polygon.setAttribute('fill-opacity', '0.08');
             polygon.setAttribute('stroke', this.theme.stroke);
-            polygon.setAttribute('stroke-width', '2');
+            polygon.setAttribute('stroke-width', '1.5');
             this.svg.appendChild(polygon);
             
             // Add architectural details - glass facade segments
