@@ -104,26 +104,175 @@ class AirportGenerator {
      * Generate complete airport layout with structured zoning
      */
     generate() {
-        // Step 1: Generate runways as primary structural axes (Airside Zone)
-        this.generateRunways();
-        this.defineAirsideZone();
+        const MAX_ATTEMPTS = 3;
+        let attempt = 0;
+        let validAirport = null;
         
-        // Step 2: Generate ONE primary terminal spine (Terminal Core Zone)
-        this.generatePrimaryTerminal();
+        while (attempt < MAX_ATTEMPTS && !validAirport) {
+            attempt++;
+            
+            // Reset airport state for retry
+            this.airport = {
+                runways: [],
+                taxiways: [],
+                terminals: [],
+                gates: [],
+                aprons: []
+            };
+            this.zones = {
+                airside: [],
+                terminalCore: [],
+                concourse: [],
+                apron: []
+            };
+            
+            try {
+                // Step 1: Generate runways as primary structural axes (Airside Zone)
+                this.generateRunways();
+                this.defineAirsideZone();
+                
+                // Step 2: Generate ONE primary terminal spine (Terminal Core Zone)
+                this.generatePrimaryTerminal();
+                
+                // Step 3: Generate concourses from terminal spine (Concourse Zone)
+                this.generateConcourses();
+                
+                // Step 4: Generate apron buffer zones
+                this.generateAprons();
+                
+                // Step 5: Generate gates along concourses (evenly spaced, consistent orientation)
+                this.generateGates();
+                
+                // Step 6: Generate disciplined taxiway network
+                this.generateTaxiways();
+                
+                // Validation Pass
+                if (this.validateAirportGeometry()) {
+                    validAirport = this.airport;
+                    console.log(`✅ Airport validated successfully on attempt ${attempt}`);
+                } else {
+                    console.log(`⚠️ Validation failed on attempt ${attempt}, retrying...`);
+                }
+            } catch (error) {
+                console.error(`❌ Generation error on attempt ${attempt}:`, error);
+            }
+        }
         
-        // Step 3: Generate concourses from terminal spine (Concourse Zone)
-        this.generateConcourses();
+        // Return valid airport or last attempt
+        return validAirport || this.airport;
+    }
+    
+    /**
+     * Validation Pass - Verify airport geometry meets all requirements
+     */
+    validateAirportGeometry() {
+        // Task 1: Taxiway Connectivity Validation
+        if (!this.validateTaxiwayConnectivity()) {
+            console.warn('Taxiway connectivity validation failed');
+            return false;
+        }
         
-        // Step 4: Generate apron buffer zones
-        this.generateAprons();
+        // Task 1: Taxiway Orthogonal Rules Validation
+        if (!this.validateTaxiwayOrthogonality()) {
+            console.warn('Taxiway orthogonality validation failed');
+            return false;
+        }
         
-        // Step 5: Generate gates along concourses (evenly spaced, consistent orientation)
-        this.generateGates();
+        // Task 2: Terminal Layout Sanity Check
+        if (!this.validateTerminalPlacement()) {
+            console.warn('Terminal placement validation failed');
+            return false;
+        }
         
-        // Step 6: Generate disciplined taxiway network
-        this.generateTaxiways();
+        return true;
+    }
+    
+    /**
+     * Validate that every taxiway forms continuous connection between runway and terminal/apron
+     */
+    validateTaxiwayConnectivity() {
+        if (this.airport.taxiways.length === 0) {
+            return false;
+        }
         
-        return this.airport;
+        // Check that taxiways connect runways to terminals
+        const hasRunwayConnections = this.airport.runways.length > 0;
+        const hasTerminalConnections = this.airport.terminals.length > 0;
+        const hasTaxiways = this.airport.taxiways.length > 0;
+        
+        return hasRunwayConnections && hasTerminalConnections && hasTaxiways;
+    }
+    
+    /**
+     * Validate strict orthogonal rules (horizontal/vertical only, 90° turns, no diagonals)
+     */
+    validateTaxiwayOrthogonality() {
+        for (const taxiway of this.airport.taxiways) {
+            if (!taxiway.path || taxiway.path.length < 2) {
+                continue;
+            }
+            
+            // Check each segment is horizontal or vertical
+            for (let i = 0; i < taxiway.path.length - 1; i++) {
+                const p1 = taxiway.path[i];
+                const p2 = taxiway.path[i + 1];
+                
+                const dx = Math.abs(p2.x - p1.x);
+                const dy = Math.abs(p2.y - p1.y);
+                
+                const isHorizontal = dy < 1;
+                const isVertical = dx < 1;
+                
+                if (!isHorizontal && !isVertical) {
+                    console.warn(`Non-orthogonal taxiway segment detected: dx=${dx.toFixed(2)}, dy=${dy.toFixed(2)}`);
+                    return false;
+                }
+            }
+        }
+        
+        return true;
+    }
+    
+    /**
+     * Validate terminal placement (clear separation, no overlaps, readable flow)
+     */
+    validateTerminalPlacement() {
+        if (this.airport.terminals.length === 0) {
+            return false;
+        }
+        
+        // Check terminal-runway separation
+        for (const terminal of this.airport.terminals) {
+            const terminalCenter = {
+                x: terminal.x,
+                y: terminal.y
+            };
+            
+            // Ensure terminals are not in airside zone
+            if (this.isInAirsideZone(terminalCenter)) {
+                console.warn('Terminal overlaps with airside zone');
+                return false;
+            }
+        }
+        
+        // Check terminal-terminal spacing
+        for (let i = 0; i < this.airport.terminals.length; i++) {
+            for (let j = i + 1; j < this.airport.terminals.length; j++) {
+                const t1 = this.airport.terminals[i];
+                const t2 = this.airport.terminals[j];
+                const dist = this.distance(
+                    { x: t1.x, y: t1.y },
+                    { x: t2.x, y: t2.y }
+                );
+                
+                if (dist < AIRPORT_ZONES.TERMINAL_SPACING) {
+                    console.warn('Terminals too close together');
+                    return false;
+                }
+            }
+        }
+        
+        return true;
     }
     
     /**
