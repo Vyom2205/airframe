@@ -81,7 +81,11 @@ const AIRPORT_ZONES = {
     SPINE_LATERAL_OFFSET: 150,      // Lateral distance from runway centerline to taxiway spine
     SPINE_EXTENSION_LENGTH: 200,    // Extension beyond runway ends for connectivity
     RUNWAY_CONNECTOR_POSITIONS: [0.30, 0.50, 0.70],  // Evenly distributed connector positions along runway (30%, 50%, 70%)
-    SPINE_SAMPLE_COUNT: 5            // Number of points to sample along spine for terminal connections
+    SPINE_SAMPLE_COUNT: 5,          // Number of points to sample along spine for terminal connections
+    // Geometric polish tolerances
+    DEGENERATE_SEGMENT_THRESHOLD: 1,  // Minimum segment length (px) to prevent degenerate geometry
+    ORTHOGONALITY_TOLERANCE: 0.5,     // Maximum deviation (px) from H/V for orthogonality validation
+    INTERSECTION_TOLERANCE: 2         // Maximum distance (px) for intersection verification
 };
 
 // ==================== Airport Generator ====================
@@ -1104,14 +1108,14 @@ class AirportGenerator {
                 };
                 
                 // Only create connectors if they form proper right angles (no degenerate segments)
-                if (Math.abs(midPoint.x - nearestPoint.x) > 1) {
+                if (Math.abs(midPoint.x - nearestPoint.x) > AIRPORT_ZONES.DEGENERATE_SEGMENT_THRESHOLD) {
                     this.airport.taxiways.push({
                         path: [nearestPoint, midPoint],
                         type: 'terminal-connector'
                     });
                 }
                 
-                if (Math.abs(midPoint.y - snappedTerminalPoint.y) > 1) {
+                if (Math.abs(midPoint.y - snappedTerminalPoint.y) > AIRPORT_ZONES.DEGENERATE_SEGMENT_THRESHOLD) {
                     this.airport.taxiways.push({
                         path: [midPoint, snappedTerminalPoint],
                         type: 'terminal-connector'
@@ -1231,8 +1235,8 @@ class AirportGenerator {
                 const dx = Math.abs(p2.x - p1.x);
                 const dy = Math.abs(p2.y - p1.y);
                 
-                const isHorizontal = dy < 0.5;
-                const isVertical = dx < 0.5;
+                const isHorizontal = dy < AIRPORT_ZONES.ORTHOGONALITY_TOLERANCE;
+                const isVertical = dx < AIRPORT_ZONES.ORTHOGONALITY_TOLERANCE;
                 
                 if (!isHorizontal && !isVertical) {
                     console.warn(`Non-orthogonal segment after polish: dx=${dx}, dy=${dy}`);
@@ -1255,8 +1259,8 @@ class AirportGenerator {
                 if (!spine.path || spine.path.length !== 2) return false;
                 
                 // Check if spineEnd is on or very close to spine
-                const dist = this.distanceToLine(spineEnd, spine.path[0], spine.path[1]);
-                return dist < 2; // Within 2px tolerance
+                const dist = this.distanceToLine(spine.path[0], spine.path[1], spineEnd);
+                return dist < AIRPORT_ZONES.INTERSECTION_TOLERANCE;
             });
             
             if (!intersectsSpine) {
