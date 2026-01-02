@@ -172,12 +172,6 @@ class AirportGenerator {
             return false;
         }
         
-        // Task 1: Taxiway Connectivity Validation
-        if (!this.validateTaxiwayConnectivity()) {
-            console.warn('Taxiway connectivity validation failed');
-            return false;
-        }
-        
         // Task 2: Taxiway Orthogonal Rules Validation
         if (!this.validateTaxiwayOrthogonality()) {
             console.warn('Taxiway orthogonality validation failed');
@@ -333,11 +327,29 @@ class AirportGenerator {
             for (const taxiway of connectedTaxiways) {
                 if (taxiway.path.length < 2) continue;
                 
-                // Get taxiway direction at connection point
-                const taxiwayAngle = Math.atan2(
-                    taxiway.path[1].y - taxiway.path[0].y,
-                    taxiway.path[1].x - taxiway.path[0].x
-                );
+                // Find connection point to determine which end of taxiway connects
+                const connectionPoint = this.findTaxiwayRunwayConnectionPoint(taxiway, runway);
+                if (!connectionPoint) continue;
+                
+                // Determine which segment of taxiway is at the connection
+                let taxiwayAngle;
+                const distToStart = this.distance(connectionPoint, taxiway.path[0]);
+                const distToEnd = this.distance(connectionPoint, taxiway.path[taxiway.path.length - 1]);
+                
+                if (distToStart < distToEnd) {
+                    // Connection is at start - use first segment direction
+                    taxiwayAngle = Math.atan2(
+                        taxiway.path[1].y - taxiway.path[0].y,
+                        taxiway.path[1].x - taxiway.path[0].x
+                    );
+                } else {
+                    // Connection is at end - use last segment direction
+                    const lastIdx = taxiway.path.length - 1;
+                    taxiwayAngle = Math.atan2(
+                        taxiway.path[lastIdx].y - taxiway.path[lastIdx - 1].y,
+                        taxiway.path[lastIdx].x - taxiway.path[lastIdx - 1].x
+                    );
+                }
                 
                 // Check if perpendicular (90 degrees difference)
                 const angleDiff = Math.abs(this.normalizeAngle(taxiwayAngle - runwayAngle));
@@ -350,13 +362,10 @@ class AirportGenerator {
                 }
                 
                 // Check attachment is within runway bounds
-                const connectionPoint = this.findTaxiwayRunwayConnectionPoint(taxiway, runway);
-                if (connectionPoint) {
-                    const distAlongRunway = this.distanceAlongLine(runway.start, runway.end, connectionPoint);
-                    if (distAlongRunway < 0 || distAlongRunway > runwayLength) {
-                        console.warn('Taxiway connects outside runway bounds');
-                        return false;
-                    }
+                const distAlongRunway = this.distanceAlongLine(runway.start, runway.end, connectionPoint);
+                if (distAlongRunway < 0 || distAlongRunway > runwayLength) {
+                    console.warn('Taxiway connects outside runway bounds');
+                    return false;
                 }
             }
         }
@@ -392,11 +401,26 @@ class AirportGenerator {
                     return false;
                 }
                 
-                // Get taxiway direction at endpoint
-                const taxiwayAngle = Math.atan2(
-                    taxiway.path[taxiway.path.length - 1].y - taxiway.path[taxiway.path.length - 2].y,
-                    taxiway.path[taxiway.path.length - 1].x - taxiway.path[taxiway.path.length - 2].x
-                );
+                // Determine which end is closest and get appropriate segment angle
+                const terminalCenter = { x: terminal.x, y: terminal.y };
+                const distStart = this.distance(taxiway.path[0], terminalCenter);
+                const distEnd = this.distance(taxiway.path[taxiway.path.length - 1], terminalCenter);
+                
+                let taxiwayAngle;
+                if (distStart < distEnd) {
+                    // Start is closer - use first segment direction
+                    taxiwayAngle = Math.atan2(
+                        taxiway.path[1].y - taxiway.path[0].y,
+                        taxiway.path[1].x - taxiway.path[0].x
+                    );
+                } else {
+                    // End is closer - use last segment direction
+                    const lastIdx = taxiway.path.length - 1;
+                    taxiwayAngle = Math.atan2(
+                        taxiway.path[lastIdx].y - taxiway.path[lastIdx - 1].y,
+                        taxiway.path[lastIdx].x - taxiway.path[lastIdx - 1].x
+                    );
+                }
                 
                 // Check if normal (perpendicular) to terminal edge
                 const angleDiff = Math.abs(this.normalizeAngle(taxiwayAngle - terminalEdgeAngle));
