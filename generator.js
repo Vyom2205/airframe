@@ -1565,7 +1565,7 @@ class AirportRenderer {
                 const nx = -dy / len;
                 const ny = dx / len;
                 
-                // Create taxiway rectangle with solid fill
+                // Create taxiway rectangle with fully opaque white fill
                 const rect = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
                 const points = [
                     `${p1.x + nx * taxiwayWidth},${p1.y + ny * taxiwayWidth}`,
@@ -1574,10 +1574,10 @@ class AirportRenderer {
                     `${p1.x - nx * taxiwayWidth},${p1.y - ny * taxiwayWidth}`
                 ].join(' ');
                 rect.setAttribute('points', points);
-                rect.setAttribute('fill', this.theme.stroke);
-                rect.setAttribute('fill-opacity', '0.25');
-                rect.setAttribute('stroke', this.theme.stroke);
-                rect.setAttribute('stroke-width', '1.5');
+                rect.setAttribute('fill', '#ffffff');
+                rect.setAttribute('fill-opacity', '1.0');
+                rect.setAttribute('stroke', 'none');
+                rect.setAttribute('stroke-width', '0');
                 this.svg.appendChild(rect);
                 
                 // Centerlines removed - they created cross artifacts at intersections
