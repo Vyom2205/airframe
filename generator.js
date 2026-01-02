@@ -1014,7 +1014,7 @@ class AirportRenderer {
                 const nx = -dy / len;
                 const ny = dx / len;
                 
-                // Create taxiway rectangle
+                // Create taxiway rectangle with solid fill
                 const rect = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
                 const points = [
                     `${p1.x + nx * taxiwayWidth},${p1.y + ny * taxiwayWidth}`,
@@ -1023,7 +1023,8 @@ class AirportRenderer {
                     `${p1.x - nx * taxiwayWidth},${p1.y - ny * taxiwayWidth}`
                 ].join(' ');
                 rect.setAttribute('points', points);
-                rect.setAttribute('fill', 'none');
+                rect.setAttribute('fill', this.theme.stroke);
+                rect.setAttribute('fill-opacity', '0.15');
                 rect.setAttribute('stroke', this.theme.stroke);
                 rect.setAttribute('stroke-width', '1.5');
                 this.svg.appendChild(rect);
@@ -1100,20 +1101,7 @@ class AirportRenderer {
             entranceLine.setAttribute('opacity', '0.5');
             this.svg.appendChild(entranceLine);
             
-            // Add corner accents (rounded corner effect)
-            terminal.points.forEach((point, idx) => {
-                const tp = transform(point);
-                const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-                circle.setAttribute('cx', tp.x);
-                circle.setAttribute('cy', tp.y);
-                circle.setAttribute('r', '3');
-                circle.setAttribute('fill', this.theme.stroke);
-                circle.setAttribute('fill-opacity', '0.2');
-                circle.setAttribute('stroke', this.theme.stroke);
-                circle.setAttribute('stroke-width', '1');
-                circle.setAttribute('opacity', '0.4');
-                this.svg.appendChild(circle);
-            });
+            // Corner accents removed - no debug geometry in final render
         });
         
         // Render gates as small protrusions
