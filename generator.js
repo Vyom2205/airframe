@@ -81,11 +81,7 @@ const AIRPORT_ZONES = {
     SPINE_LATERAL_OFFSET: 150,      // Lateral distance from runway centerline to taxiway spine
     SPINE_EXTENSION_LENGTH: 200,    // Extension beyond runway ends for connectivity
     RUNWAY_CONNECTOR_POSITIONS: [0.30, 0.50, 0.70],  // Evenly distributed connector positions along runway (30%, 50%, 70%)
-    SPINE_SAMPLE_COUNT: 5,          // Number of points to sample along spine for terminal connections
-    // Geometric polish tolerances
-    DEGENERATE_SEGMENT_THRESHOLD: 1,  // Minimum segment length (px) to prevent degenerate geometry
-    ORTHOGONALITY_TOLERANCE: 0.5,     // Maximum deviation (px) from H/V for orthogonality validation
-    INTERSECTION_TOLERANCE: 2         // Maximum distance (px) for intersection verification
+    SPINE_SAMPLE_COUNT: 5            // Number of points to sample along spine for terminal connections
 };
 
 // ==================== Airport Generator ====================
@@ -1108,14 +1104,14 @@ class AirportGenerator {
                 };
                 
                 // Only create connectors if they form proper right angles (no degenerate segments)
-                if (Math.abs(midPoint.x - nearestPoint.x) > AIRPORT_ZONES.DEGENERATE_SEGMENT_THRESHOLD) {
+                if (Math.abs(midPoint.x - nearestPoint.x) > 1) {
                     this.airport.taxiways.push({
                         path: [nearestPoint, midPoint],
                         type: 'terminal-connector'
                     });
                 }
                 
-                if (Math.abs(midPoint.y - snappedTerminalPoint.y) > AIRPORT_ZONES.DEGENERATE_SEGMENT_THRESHOLD) {
+                if (Math.abs(midPoint.y - snappedTerminalPoint.y) > 1) {
                     this.airport.taxiways.push({
                         path: [midPoint, snappedTerminalPoint],
                         type: 'terminal-connector'
@@ -1235,8 +1231,8 @@ class AirportGenerator {
                 const dx = Math.abs(p2.x - p1.x);
                 const dy = Math.abs(p2.y - p1.y);
                 
-                const isHorizontal = dy < AIRPORT_ZONES.ORTHOGONALITY_TOLERANCE;
-                const isVertical = dx < AIRPORT_ZONES.ORTHOGONALITY_TOLERANCE;
+                const isHorizontal = dy < 0.5;
+                const isVertical = dx < 0.5;
                 
                 if (!isHorizontal && !isVertical) {
                     console.warn(`Non-orthogonal segment after polish: dx=${dx}, dy=${dy}`);
@@ -1259,8 +1255,8 @@ class AirportGenerator {
                 if (!spine.path || spine.path.length !== 2) return false;
                 
                 // Check if spineEnd is on or very close to spine
-                const dist = this.distanceToLine(spine.path[0], spine.path[1], spineEnd);
-                return dist < AIRPORT_ZONES.INTERSECTION_TOLERANCE;
+                const dist = this.distanceToLine(spineEnd, spine.path[0], spine.path[1]);
+                return dist < 2; // Within 2px tolerance
             });
             
             if (!intersectsSpine) {
@@ -1565,7 +1561,7 @@ class AirportRenderer {
                 const nx = -dy / len;
                 const ny = dx / len;
                 
-                // Create taxiway rectangle with fully opaque white fill
+                // Create taxiway rectangle with solid fill
                 const rect = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
                 const points = [
                     `${p1.x + nx * taxiwayWidth},${p1.y + ny * taxiwayWidth}`,
@@ -1575,23 +1571,12 @@ class AirportRenderer {
                 ].join(' ');
                 rect.setAttribute('points', points);
                 rect.setAttribute('fill', this.theme.stroke);
-                rect.setAttribute('fill-opacity', '0.15');
+                rect.setAttribute('fill-opacity', '0.25');
                 rect.setAttribute('stroke', this.theme.stroke);
-                rect.setAttribute('stroke-width', '1');
-                rect.setAttribute('stroke-opacity', '0.4');
+                rect.setAttribute('stroke-width', '1.5');
                 this.svg.appendChild(rect);
                 
-                // Add centerline marking (dashed line for guidance)
-                const centerLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-                centerLine.setAttribute('x1', tp1.x);
-                centerLine.setAttribute('y1', tp1.y);
-                centerLine.setAttribute('x2', tp2.x);
-                centerLine.setAttribute('y2', tp2.y);
-                centerLine.setAttribute('stroke', this.theme.stroke);
-                centerLine.setAttribute('stroke-width', '1');
-                centerLine.setAttribute('stroke-dasharray', `${10 * scale},${8 * scale}`);
-                centerLine.setAttribute('opacity', '0.5');
-                this.svg.appendChild(centerLine);
+                // Centerlines removed - they created cross artifacts at intersections
             }
         });
         
