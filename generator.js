@@ -940,157 +940,161 @@ class AirportGenerator {
      * This prevents runway intersection by construction (not validation)
      */
     generateTaxiways() {
-        // Initialize runway stubs (atomic attachment points)
-        this.runwayStubs = [];
+        // Initialize taxiways
         this.airport.taxiways = [];
         
-        // Step 1: Generate perpendicular runway stubs (3 per runway at 25%, 50%, 75%)
-        this.generateRunwayStubs();
+        // Step 1: Generate runway-parallel taxiway spines (one primary spine per runway)
+        this.generateRunwayParallelSpines();
         
-        // Step 2: Extend taxiways from stub endpoints only
-        this.extendTaxiwaysFromStubs();
+        // Step 2: Add short perpendicular connectors from spines to runways
+        this.addRunwayConnectors();
         
-        // Step 3: Connect taxiways to terminals (normal 90° connections)
-        this.connectTaxiwaysToTerminals();
+        // Step 3: Add perpendicular connectors from spines to terminals
+        this.addTerminalConnectors();
         
-        // Step 4: Clean up - merge collinear segments
+        // Step 4: Clean up and validate
         this.cleanupTaxiways();
-        
-        // Step 5: DESTROY stub data (no debug geometry in final output)
-        this.runwayStubs = null;
     }
     
     /**
-     * Generate perpendicular runway stubs (atomic attachment points)
-     * Each stub is perpendicular to runway (90° ± 5°), terminates at runway edge
-     * Fixed length, no auto-extension - these are the ONLY legal attachment points
+     * Generate runway-parallel taxiway spines
+     * One primary full-length taxiway parallel to each runway
+     * Offset laterally by fixed distance
      */
-    generateRunwayStubs() {
-        const stubPositions = [0.25, 0.50, 0.75]; // 3 stubs per runway
-        const stubLength = 100; // Fixed stub length from runway edge
+    generateRunwayParallelSpines() {
+        const spineOffset = 150; // Lateral distance from runway centerline
         
         this.airport.runways.forEach((runway, rwIdx) => {
             const runwayAngle = Math.atan2(runway.end.y - runway.start.y, runway.end.x - runway.start.x);
             const perpAngle = runwayAngle + Math.PI / 2;
+            const runwayLength = this.distance(runway.start, runway.end);
             
-            stubPositions.forEach((t, stubIdx) => {
-                // Point on runway centerline
-                const runwayPoint = {
-                    x: runway.start.x + (runway.end.x - runway.start.x) * t,
-                    y: runway.start.y + (runway.end.y - runway.start.y) * t
-                };
-                
-                // Stub starts at runway edge (not centerline)
-                const offsetToEdge = runway.width / 2 + 20;
-                const stubStart = {
-                    x: runwayPoint.x + Math.cos(perpAngle) * offsetToEdge,
-                    y: runwayPoint.y + Math.sin(perpAngle) * offsetToEdge
-                };
-                
-                // Stub ends at fixed length from runway edge
-                const stubEnd = {
-                    x: stubStart.x + Math.cos(perpAngle) * stubLength,
-                    y: stubStart.y + Math.sin(perpAngle) * stubLength
-                };
-                
-                // Store stub as atomic attachment point
-                this.runwayStubs.push({
-                    start: stubStart,  // At runway edge
-                    end: stubEnd,      // Fixed distance away
-                    runwayIndex: rwIdx,
-                    stubIndex: stubIdx,
-                    angle: perpAngle,  // Perpendicular to runway
-                    runwayAngle: runwayAngle
-                });
-                
-                // Create taxiway segment for this stub (runway edge → stub end)
-                this.airport.taxiways.push({
-                    path: [stubStart, stubEnd],
-                    type: 'stub',
-                    runwayIndex: rwIdx,
-                    stubIndex: stubIdx
-                });
+            // Extend spine slightly beyond runway for better connectivity
+            const extension = 200;
+            const spineLength = runwayLength + extension * 2;
+            
+            // Calculate spine start and end (fully parallel to runway, offset laterally)
+            const runwayCenter = {
+                x: (runway.start.x + runway.end.x) / 2,
+                y: (runway.start.y + runway.end.y) / 2
+            };
+            
+            // Offset spine perpendicular to runway
+            const spineCenter = {
+                x: runwayCenter.x + Math.cos(perpAngle) * spineOffset,
+                y: runwayCenter.y + Math.sin(perpAngle) * spineOffset
+            };
+            
+            // Spine endpoints parallel to runway
+            const spineStart = {
+                x: spineCenter.x - Math.cos(runwayAngle) * (spineLength / 2),
+                y: spineCenter.y - Math.sin(runwayAngle) * (spineLength / 2)
+            };
+            
+            const spineEnd = {
+                x: spineCenter.x + Math.cos(runwayAngle) * (spineLength / 2),
+                y: spineCenter.y + Math.sin(runwayAngle) * (spineLength / 2)
+            };
+            
+            // Create full-length taxiway spine
+            this.airport.taxiways.push({
+                path: [spineStart, spineEnd],
+                type: 'spine',
+                runwayIndex: rwIdx,
+                angle: runwayAngle  // Store for connector calculations
             });
         });
     }
     
     /**
-     * Extend taxiways from stub endpoints only
-     * Taxiways may ONLY originate from runway stubs
-     * No free-floating or grid-originated segments allowed
+     * Add short perpendicular connectors from taxiway spines to runways
+     * At least one connector per runway-spine pair
      */
-    extendTaxiwaysFromStubs() {
-        const extensionLength = 300; // Distance to extend from stub endpoint
+    addRunwayConnectors() {
+        const connectorPositions = [0.35, 0.65]; // Two connectors per runway
         
-        this.runwayStubs.forEach((stub, stubIdx) => {
-            // Extend perpendicular to stub direction (parallel to runway)
-            const extensionAngle = stub.runwayAngle;
-            
-            // Create extension in both directions along runway axis
-            const extension1End = {
-                x: stub.end.x + Math.cos(extensionAngle) * extensionLength,
-                y: stub.end.y + Math.sin(extensionAngle) * extensionLength
-            };
-            
-            const extension2End = {
-                x: stub.end.x - Math.cos(extensionAngle) * extensionLength,
-                y: stub.end.y - Math.sin(extensionAngle) * extensionLength
-            };
-            
-            // Add taxiway segments extending from stub endpoint
-            this.airport.taxiways.push({
-                path: [stub.end, extension1End],
-                type: 'extension',
-                sourceStubIndex: stubIdx
-            });
-            
-            this.airport.taxiways.push({
-                path: [stub.end, extension2End],
-                type: 'extension',
-                sourceStubIndex: stubIdx
-            });
+        this.airport.taxiways.forEach(taxiway => {
+            if (taxiway.type === 'spine') {
+                const runway = this.airport.runways[taxiway.runwayIndex];
+                const runwayAngle = Math.atan2(runway.end.y - runway.start.y, runway.end.x - runway.start.x);
+                const perpAngle = runwayAngle + Math.PI / 2;
+                
+                connectorPositions.forEach(t => {
+                    // Point on taxiway spine
+                    const spinePoint = {
+                        x: taxiway.path[0].x + (taxiway.path[1].x - taxiway.path[0].x) * t,
+                        y: taxiway.path[0].y + (taxiway.path[1].y - taxiway.path[0].y) * t
+                    };
+                    
+                    // Point on runway edge (perpendicular from spine to runway)
+                    // Calculate runway centerline point at same position along runway
+                    const runwayPoint = {
+                        x: runway.start.x + (runway.end.x - runway.start.x) * t,
+                        y: runway.start.y + (runway.end.y - runway.start.y) * t
+                    };
+                    
+                    // Connector endpoint at runway edge
+                    const offsetToEdge = runway.width / 2 + 10;
+                    const runwayEdgePoint = {
+                        x: runwayPoint.x + Math.cos(perpAngle) * offsetToEdge,
+                        y: runwayPoint.y + Math.sin(perpAngle) * offsetToEdge
+                    };
+                    
+                    // Create short perpendicular connector from runway edge to spine
+                    this.airport.taxiways.push({
+                        path: [runwayEdgePoint, spinePoint],
+                        type: 'runway-connector',
+                        runwayIndex: taxiway.runwayIndex
+                    });
+                });
+            }
         });
     }
     
     /**
-     * Connect taxiways to terminals with normal (90°) connections
-     * Terminal connections must be perpendicular to terminal edge (90° ± 8°)
-     * No diagonal or shallow attachments allowed
+     * Add perpendicular connectors from taxiway spines to terminals
+     * At least one connector per terminal
      */
-    connectTaxiwaysToTerminals() {
+    addTerminalConnectors() {
         this.airport.terminals.forEach(terminal => {
-            // Find nearest taxiway extension endpoint
-            let nearestTaxiway = null;
+            // Find nearest spine point
+            let nearestSpine = null;
+            let nearestPoint = null;
             let minDist = Infinity;
-            let nearestEndpoint = null;
             
             this.airport.taxiways.forEach(taxiway => {
-                if (taxiway.type === 'extension') {
-                    // Check both endpoints of extension
-                    [taxiway.path[0], taxiway.path[1]].forEach(endpoint => {
-                        const dist = this.distance(endpoint, terminal.center);
+                if (taxiway.type === 'spine') {
+                    // Check multiple points along spine
+                    const samples = 5;
+                    for (let i = 0; i <= samples; i++) {
+                        const t = i / samples;
+                        const point = {
+                            x: taxiway.path[0].x + (taxiway.path[1].x - taxiway.path[0].x) * t,
+                            y: taxiway.path[0].y + (taxiway.path[1].y - taxiway.path[0].y) * t
+                        };
+                        
+                        const dist = this.distance(point, terminal.center);
                         if (dist < minDist && dist < AIRPORT_ZONES.TERMINAL_CONNECTION_RANGE) {
                             minDist = dist;
-                            nearestTaxiway = taxiway;
-                            nearestEndpoint = endpoint;
+                            nearestSpine = taxiway;
+                            nearestPoint = point;
                         }
-                    });
+                    }
                 }
             });
             
-            if (nearestTaxiway && nearestEndpoint) {
-                // Create perpendicular connection from taxiway to terminal
-                // Use right-angle path (H then V, or V then H)
-                const terminalEdgePoint = this.findNearestTerminalEdgePoint(nearestEndpoint, terminal);
+            if (nearestSpine && nearestPoint) {
+                // Create perpendicular connector from spine to terminal
+                const terminalEdgePoint = this.findNearestTerminalEdgePoint(nearestPoint, terminal);
                 
-                // Create two-segment perpendicular path
+                // Create two-segment perpendicular path (right-angle)
                 const midPoint = {
                     x: terminalEdgePoint.x,
-                    y: nearestEndpoint.y
+                    y: nearestPoint.y
                 };
                 
                 this.airport.taxiways.push({
-                    path: [nearestEndpoint, midPoint],
+                    path: [nearestPoint, midPoint],
                     type: 'terminal-connector'
                 });
                 
