@@ -1575,21 +1575,22 @@ class AirportRenderer {
                 ].join(' ');
                 rect.setAttribute('points', points);
                 rect.setAttribute('fill', this.theme.stroke);
-                rect.setAttribute('fill-opacity', '0.08');
-                rect.setAttribute('stroke', 'none');
-                rect.setAttribute('stroke-width', '0');
+                rect.setAttribute('fill-opacity', '0.15');
+                rect.setAttribute('stroke', this.theme.stroke);
+                rect.setAttribute('stroke-width', '1');
+                rect.setAttribute('stroke-opacity', '0.4');
                 this.svg.appendChild(rect);
                 
-                // Add subtle centerline marking (thin dashed line)
+                // Add centerline marking (dashed line for guidance)
                 const centerLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
                 centerLine.setAttribute('x1', tp1.x);
                 centerLine.setAttribute('y1', tp1.y);
                 centerLine.setAttribute('x2', tp2.x);
                 centerLine.setAttribute('y2', tp2.y);
                 centerLine.setAttribute('stroke', this.theme.stroke);
-                centerLine.setAttribute('stroke-width', '0.8');
-                centerLine.setAttribute('stroke-dasharray', `${8 * scale},${6 * scale}`);
-                centerLine.setAttribute('opacity', '0.3');
+                centerLine.setAttribute('stroke-width', '1');
+                centerLine.setAttribute('stroke-dasharray', `${10 * scale},${8 * scale}`);
+                centerLine.setAttribute('opacity', '0.5');
                 this.svg.appendChild(centerLine);
             }
         });
@@ -1604,9 +1605,9 @@ class AirportRenderer {
             }).join(' ');
             polygon.setAttribute('points', points);
             polygon.setAttribute('fill', this.theme.stroke);
-            polygon.setAttribute('fill-opacity', '0.08');
+            polygon.setAttribute('fill-opacity', '0.1');
             polygon.setAttribute('stroke', this.theme.stroke);
-            polygon.setAttribute('stroke-width', '1.5');
+            polygon.setAttribute('stroke-width', '2');
             this.svg.appendChild(polygon);
             
             // Add architectural details - glass facade segments
