@@ -76,7 +76,12 @@ const AIRPORT_ZONES = {
     TAXIWAY_LANE_WIDTH: 25,         // Visual width of taxiway lane
     CORNER_RADIUS: 40,               // Radius for rounded taxiway corners
     MAX_TAXIWAY_CONNECTION_DIST: 1000,  // Maximum distance for taxiway connections
-    TERMINAL_CONNECTION_RANGE: 600  // Maximum range for taxiway-terminal connections (stub-based system)
+    TERMINAL_CONNECTION_RANGE: 600,  // Maximum range for taxiway-terminal connections (spine-based system)
+    // Spine-based taxiway system configuration
+    SPINE_LATERAL_OFFSET: 150,      // Lateral distance from runway centerline to taxiway spine
+    SPINE_EXTENSION_LENGTH: 200,    // Extension beyond runway ends for connectivity
+    RUNWAY_CONNECTOR_POSITIONS: [0.35, 0.65],  // Positions along runway for perpendicular connectors
+    SPINE_SAMPLE_COUNT: 5            // Number of points to sample along spine for terminal connections
 };
 
 // ==================== Airport Generator ====================
@@ -962,7 +967,7 @@ class AirportGenerator {
      * Offset laterally by fixed distance
      */
     generateRunwayParallelSpines() {
-        const spineOffset = 150; // Lateral distance from runway centerline
+        const spineOffset = AIRPORT_ZONES.SPINE_LATERAL_OFFSET;
         
         this.airport.runways.forEach((runway, rwIdx) => {
             const runwayAngle = Math.atan2(runway.end.y - runway.start.y, runway.end.x - runway.start.x);
@@ -970,7 +975,7 @@ class AirportGenerator {
             const runwayLength = this.distance(runway.start, runway.end);
             
             // Extend spine slightly beyond runway for better connectivity
-            const extension = 200;
+            const extension = AIRPORT_ZONES.SPINE_EXTENSION_LENGTH;
             const spineLength = runwayLength + extension * 2;
             
             // Calculate spine start and end (fully parallel to runway, offset laterally)
@@ -1011,7 +1016,7 @@ class AirportGenerator {
      * At least one connector per runway-spine pair
      */
     addRunwayConnectors() {
-        const connectorPositions = [0.35, 0.65]; // Two connectors per runway
+        const connectorPositions = AIRPORT_ZONES.RUNWAY_CONNECTOR_POSITIONS;
         
         this.airport.taxiways.forEach(taxiway => {
             if (taxiway.type === 'spine') {
@@ -1065,7 +1070,7 @@ class AirportGenerator {
             this.airport.taxiways.forEach(taxiway => {
                 if (taxiway.type === 'spine') {
                     // Check multiple points along spine
-                    const samples = 5;
+                    const samples = AIRPORT_ZONES.SPINE_SAMPLE_COUNT;
                     for (let i = 0; i <= samples; i++) {
                         const t = i / samples;
                         const point = {
