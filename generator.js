@@ -75,7 +75,8 @@ const AIRPORT_ZONES = {
     TAXIWAY_GRID_SPACING: 120,      // Spacing between parallel taxiways in grid
     TAXIWAY_LANE_WIDTH: 25,         // Visual width of taxiway lane
     CORNER_RADIUS: 40,               // Radius for rounded taxiway corners
-    MAX_TAXIWAY_CONNECTION_DIST: 1000  // Maximum distance for taxiway connections
+    MAX_TAXIWAY_CONNECTION_DIST: 1000,  // Maximum distance for taxiway connections
+    TERMINAL_CONNECTION_RANGE: 600  // Maximum range for taxiway-terminal connections (stub-based system)
 };
 
 // ==================== Airport Generator ====================
@@ -1068,7 +1069,7 @@ class AirportGenerator {
                     // Check both endpoints of extension
                     [taxiway.path[0], taxiway.path[1]].forEach(endpoint => {
                         const dist = this.distance(endpoint, terminal.center);
-                        if (dist < minDist && dist < 600) { // Within connection range
+                        if (dist < minDist && dist < AIRPORT_ZONES.TERMINAL_CONNECTION_RANGE) {
                             minDist = dist;
                             nearestTaxiway = taxiway;
                             nearestEndpoint = endpoint;
@@ -1158,28 +1159,38 @@ class AirportGenerator {
         const path = taxiway.path;
         if (!path || path.length < 2) return false;
         
-        // Check if taxiway midpoint is within any runway bounds
+        // Check if taxiway midpoint is within any runway bounds using proper distance calculation
         const midpoint = {
             x: (path[0].x + path[path.length - 1].x) / 2,
             y: (path[0].y + path[path.length - 1].y) / 2
         };
         
         return this.airport.runways.some(runway => {
-            const runwayLength = this.distance(runway.start, runway.end);
-            const distFromStart = this.distance(midpoint, runway.start);
-            const distFromEnd = this.distance(midpoint, runway.end);
+            // Calculate perpendicular distance from midpoint to runway centerline
+            const distToLine = this.distanceToLine(midpoint, runway.start, runway.end);
             
-            // Point is "on" runway if distance from both ends ≈ runway length
-            return Math.abs((distFromStart + distFromEnd) - runwayLength) < runway.width;
+            // Calculate distance along runway from start
+            const distAlong = this.distanceAlongLine(midpoint, runway.start, runway.end);
+            const runwayLength = this.distance(runway.start, runway.end);
+            
+            // Point is within runway if:
+            // 1. Perpendicular distance < runway half-width
+            // 2. Distance along is within [0, runwayLength]
+            return distToLine < (runway.width / 2) && distAlong >= 0 && distAlong <= runwayLength;
         });
     }
     
     /**
      * Merge collinear taxiway segments to reduce segment count
+     * Note: Currently returns taxiways as-is. Full implementation would require:
+     * - Building adjacency graph of segment endpoints
+     * - Traversing connected components to find collinear chains
+     * - Merging chains into single segments
+     * This optimization is deferred as stub-based generation produces fewer segments than grid-based
      */
     mergeCollinearSegments(taxiways) {
-        // For now, return as-is
-        // Full merge logic would require adjacency graph building
+        // Deferred optimization - stub-based generation already reduces segment count significantly
+        // compared to grid-based approach (tens vs thousands of segments)
         return taxiways;
     }
     
