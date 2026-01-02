@@ -172,15 +172,27 @@ class AirportGenerator {
             return false;
         }
         
-        // Task 1: Taxiway Orthogonal Rules Validation
+        // Task 1: Taxiway Connectivity Validation
+        if (!this.validateTaxiwayConnectivity()) {
+            console.warn('Taxiway connectivity validation failed');
+            return false;
+        }
+        
+        // Task 2: Taxiway Orthogonal Rules Validation
         if (!this.validateTaxiwayOrthogonality()) {
             console.warn('Taxiway orthogonality validation failed');
             return false;
         }
         
-        // Task 2: Terminal Layout Sanity Check
+        // Task 3: Terminal Layout Sanity Check
         if (!this.validateTerminalPlacement()) {
             console.warn('Terminal placement validation failed');
+            return false;
+        }
+        
+        // Task 4: NEW - Directional Attachment Integrity
+        if (!this.validateDirectionalAttachment()) {
+            console.warn('Directional attachment integrity validation failed');
             return false;
         }
         
@@ -273,6 +285,250 @@ class AirportGenerator {
         }
         
         return true;
+    }
+    
+    /**
+     * NEW VALIDATION: Directional Attachment Integrity
+     * Ensures taxiways attach perpendicularly to runways and terminals
+     * Validates that connections are proper attachments, not just intersections/overlaps
+     */
+    validateDirectionalAttachment() {
+        // Validate taxiway → runway attachment
+        if (!this.validateTaxiwayRunwayAttachment()) {
+            console.warn('Taxiway → Runway attachment validation failed');
+            return false;
+        }
+        
+        // Validate taxiway → terminal attachment  
+        if (!this.validateTaxiwayTerminalAttachment()) {
+            console.warn('Taxiway → Terminal attachment validation failed');
+            return false;
+        }
+        
+        // Validate structural sanity
+        if (!this.validateStructuralSanity()) {
+            console.warn('Structural sanity check failed');
+            return false;
+        }
+        
+        return true;
+    }
+    
+    /**
+     * Validate that taxiways attach perpendicularly to runways
+     */
+    validateTaxiwayRunwayAttachment() {
+        const PERPENDICULAR_TOLERANCE = 0.1; // ~5.7 degrees
+        
+        for (const runway of this.airport.runways) {
+            const runwayAngle = Math.atan2(runway.end.y - runway.start.y, runway.end.x - runway.start.x);
+            const runwayLength = this.distance(runway.start, runway.end);
+            
+            // Find all taxiway segments that connect to this runway
+            const connectedTaxiways = this.airport.taxiways.filter(taxiway => {
+                return this.taxiwayConnectsToRunway(taxiway, runway);
+            });
+            
+            // Validate each connection
+            for (const taxiway of connectedTaxiways) {
+                if (taxiway.path.length < 2) continue;
+                
+                // Get taxiway direction at connection point
+                const taxiwayAngle = Math.atan2(
+                    taxiway.path[1].y - taxiway.path[0].y,
+                    taxiway.path[1].x - taxiway.path[0].x
+                );
+                
+                // Check if perpendicular (90 degrees difference)
+                const angleDiff = Math.abs(this.normalizeAngle(taxiwayAngle - runwayAngle));
+                const isPerpendicular = Math.abs(angleDiff - Math.PI / 2) < PERPENDICULAR_TOLERANCE || 
+                                       Math.abs(angleDiff - 3 * Math.PI / 2) < PERPENDICULAR_TOLERANCE;
+                
+                if (!isPerpendicular) {
+                    console.warn('Taxiway connects to runway at non-perpendicular angle');
+                    return false;
+                }
+                
+                // Check attachment is within runway bounds
+                const connectionPoint = this.findTaxiwayRunwayConnectionPoint(taxiway, runway);
+                if (connectionPoint) {
+                    const distAlongRunway = this.distanceAlongLine(runway.start, runway.end, connectionPoint);
+                    if (distAlongRunway < 0 || distAlongRunway > runwayLength) {
+                        console.warn('Taxiway connects outside runway bounds');
+                        return false;
+                    }
+                }
+            }
+        }
+        
+        return true;
+    }
+    
+    /**
+     * Validate that taxiways attach properly to terminals
+     */
+    validateTaxiwayTerminalAttachment() {
+        const NORMAL_TOLERANCE = 0.15; // ~8.6 degrees
+        const ALIGNMENT_TOLERANCE = 10; // 10px
+        
+        for (const terminal of this.airport.terminals) {
+            // Find taxiways that should connect to this terminal
+            const nearbyTaxiways = this.airport.taxiways.filter(taxiway => {
+                return this.taxiwayNearTerminal(taxiway, terminal, 100);
+            });
+            
+            for (const taxiway of nearbyTaxiways) {
+                if (taxiway.path.length < 2) continue;
+                
+                // Get taxiway endpoint closest to terminal
+                const endpoint = this.getClosestEndpoint(taxiway, terminal);
+                
+                // Check if endpoint aligns with terminal face
+                const terminalEdgeAngle = terminal.angle;
+                const distToEdge = this.distanceToTerminalEdge(endpoint, terminal);
+                
+                if (distToEdge > ALIGNMENT_TOLERANCE) {
+                    console.warn('Taxiway endpoint does not align with terminal face');
+                    return false;
+                }
+                
+                // Get taxiway direction at endpoint
+                const taxiwayAngle = Math.atan2(
+                    taxiway.path[taxiway.path.length - 1].y - taxiway.path[taxiway.path.length - 2].y,
+                    taxiway.path[taxiway.path.length - 1].x - taxiway.path[taxiway.path.length - 2].x
+                );
+                
+                // Check if normal (perpendicular) to terminal edge
+                const angleDiff = Math.abs(this.normalizeAngle(taxiwayAngle - terminalEdgeAngle));
+                const isNormal = Math.abs(angleDiff - Math.PI / 2) < NORMAL_TOLERANCE || 
+                                Math.abs(angleDiff - 3 * Math.PI / 2) < NORMAL_TOLERANCE;
+                
+                if (!isNormal) {
+                    console.warn('Taxiway does not approach terminal at normal angle');
+                    return false;
+                }
+            }
+        }
+        
+        return true;
+    }
+    
+    /**
+     * Validate structural sanity
+     */
+    validateStructuralSanity() {
+        // Check taxiway-runway intersection count
+        for (const taxiway of this.airport.taxiways) {
+            for (const runway of this.airport.runways) {
+                const intersections = this.countTaxiwayRunwayIntersections(taxiway, runway);
+                if (intersections > 1) {
+                    console.warn('Taxiway intersects runway more than once');
+                    return false;
+                }
+            }
+        }
+        
+        return true;
+    }
+    
+    // Helper methods for directional attachment validation
+    
+    taxiwayConnectsToRunway(taxiway, runway) {
+        return taxiway.path.some(point => {
+            return this.distanceToLine(runway.start, runway.end, point) < runway.width / 2 + 5;
+        });
+    }
+    
+    findTaxiwayRunwayConnectionPoint(taxiway, runway) {
+        let closest = null;
+        let minDist = Infinity;
+        
+        taxiway.path.forEach(point => {
+            const dist = this.distanceToLine(runway.start, runway.end, point);
+            if (dist < minDist) {
+                minDist = dist;
+                closest = point;
+            }
+        });
+        
+        return closest;
+    }
+    
+    distanceAlongLine(start, end, point) {
+        const dx = end.x - start.x;
+        const dy = end.y - start.y;
+        const length = Math.sqrt(dx * dx + dy * dy);
+        
+        const projX = ((point.x - start.x) * dx + (point.y - start.y) * dy) / (length * length);
+        return projX * length;
+    }
+    
+    distanceToLine(start, end, point) {
+        const dx = end.x - start.x;
+        const dy = end.y - start.y;
+        const length = Math.sqrt(dx * dx + dy * dy);
+        
+        if (length === 0) return this.distance(start, point);
+        
+        const t = Math.max(0, Math.min(1, ((point.x - start.x) * dx + (point.y - start.y) * dy) / (length * length)));
+        const projX = start.x + t * dx;
+        const projY = start.y + t * dy;
+        
+        return this.distance(point, { x: projX, y: projY });
+    }
+    
+    taxiwayNearTerminal(taxiway, terminal, threshold) {
+        return taxiway.path.some(point => {
+            return this.distance(point, { x: terminal.x, y: terminal.y }) < threshold;
+        });
+    }
+    
+    getClosestEndpoint(taxiway, terminal) {
+        const start = taxiway.path[0];
+        const end = taxiway.path[taxiway.path.length - 1];
+        const terminalCenter = { x: terminal.x, y: terminal.y };
+        
+        const distStart = this.distance(start, terminalCenter);
+        const distEnd = this.distance(end, terminalCenter);
+        
+        return distStart < distEnd ? start : end;
+    }
+    
+    distanceToTerminalEdge(point, terminal) {
+        // Simplified: distance to terminal center minus half terminal width
+        const distToCenter = this.distance(point, { x: terminal.x, y: terminal.y });
+        return Math.max(0, distToCenter - terminal.width / 2);
+    }
+    
+    countTaxiwayRunwayIntersections(taxiway, runway) {
+        let count = 0;
+        
+        for (let i = 0; i < taxiway.path.length - 1; i++) {
+            const p1 = taxiway.path[i];
+            const p2 = taxiway.path[i + 1];
+            
+            if (this.lineSegmentsIntersect(p1, p2, runway.start, runway.end)) {
+                count++;
+            }
+        }
+        
+        return count;
+    }
+    
+    lineSegmentsIntersect(p1, p2, p3, p4) {
+        const det = (p2.x - p1.x) * (p4.y - p3.y) - (p2.y - p1.y) * (p4.x - p3.x);
+        if (Math.abs(det) < 1e-10) return false;
+        
+        const t = ((p3.x - p1.x) * (p4.y - p3.y) - (p3.y - p1.y) * (p4.x - p3.x)) / det;
+        const u = ((p3.x - p1.x) * (p2.y - p1.y) - (p3.y - p1.y) * (p2.x - p1.x)) / det;
+        
+        return t >= 0 && t <= 1 && u >= 0 && u <= 1;
+    }
+    
+    normalizeAngle(angle) {
+        while (angle < 0) angle += 2 * Math.PI;
+        while (angle >= 2 * Math.PI) angle -= 2 * Math.PI;
+        return angle;
     }
     
     /**
