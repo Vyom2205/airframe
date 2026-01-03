@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AirFrame - Procedural Airport Generator</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>AirFrame</h1>
+            <p class="subtitle">Procedural Airport Generator</p>
+            <p class="disclaimer">All airports are fictional and generated for artistic purposes</p>
+        </header>
+        
+        <div class="controls">
+            <div class="control-section">
+                <h3>Airport Configuration</h3>
+                
+                <div class="control-group">
+                    <label for="runwayCount">Runway Count: <span id="runwayCountValue">2</span></label>
+                    <input type="range" id="runwayCount" min="1" max="4" value="2" class="slider">
+                </div>
+                
+                <div class="control-group">
+                    <label for="runwayConfig">Runway Configuration:</label>
+                    <select id="runwayConfig" class="select-field">
+                        <option value="parallel">Parallel</option>
+                        <option value="crossing">Crossing</option>
+                        <option value="random">Random</option>
+                    </select>
+                </div>
+                
+                <div class="control-group">
+                    <label for="terminalCount">Terminal Count: <span id="terminalCountValue">1</span></label>
+                    <input type="range" id="terminalCount" min="1" max="4" value="1" class="slider">
+                </div>
+                
+                <div class="control-group">
+                    <label for="terminalLayout">Terminal Layout:</label>
+                    <select id="terminalLayout" class="select-field">
+                        <option value="linear">Linear</option>
+                        <option value="pier">Pier</option>
+                        <option value="satellite">Satellite</option>
+                        <option value="hybrid">Hybrid</option>
+                    </select>
+                </div>
+                
+                <div class="control-group">
+                    <label for="gateCount">Gate Count: <span id="gateCountValue">12</span></label>
+                    <input type="range" id="gateCount" min="4" max="40" value="12" class="slider">
+                </div>
+                
+                <div class="control-group">
+                    <label for="taxiwayDensity">Taxiway Density:</label>
+                    <select id="taxiwayDensity" class="select-field">
+                        <option value="low">Low</option>
+                        <option value="medium" selected>Medium</option>
+                        <option value="high">High</option>
+                    </select>
+                </div>
+                
+                <div class="control-group">
+                    <label for="randomSeed">Random Seed (optional):</label>
+                    <input type="text" id="randomSeed" placeholder="Leave empty for random" class="input-field">
+                </div>
+            </div>
+            
+            <div class="control-section">
+                <h3>Visual Options</h3>
+                
+                <div class="control-group">
+                    <label for="themeSelect">Theme:</label>
+                    <select id="themeSelect" class="select-field">
+                        <option value="blueprint" selected>Blueprint</option>
+                        <option value="dark">Dark</option>
+                        <option value="white">White</option>
+                    </select>
+                </div>
+                
+                <div class="control-group">
+                    <label for="aspectRatio">Aspect Ratio:</label>
+                    <select id="aspectRatio" class="select-field">
+                        <option value="16:9" selected>16:9 (Landscape)</option>
+                        <option value="9:16">9:16 (Portrait)</option>
+                        <option value="1:1">1:1 (Square)</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="button-group">
+                <button id="generateBtn" class="btn btn-primary">Generate AirFrame</button>
+                <button id="randomizeBtn" class="btn btn-secondary">Randomize Everything</button>
+            </div>
+            
+            <div class="export-group">
+                <button id="downloadSVG" class="btn btn-export" disabled>Download SVG</button>
+                <button id="downloadPNG" class="btn btn-export" disabled>Download PNG (4K)</button>
+            </div>
+        </div>
+        
+        <div id="status" class="status"></div>
+        
+        <div id="canvasContainer" class="canvas-container">
+            <svg id="airportSVG" class="airport-svg"></svg>
+        </div>
+        
+        <footer class="footer">
+            <p class="version">Build: 5e088fe | AirFrame 2.0 Generator</p>
+        </footer>
+    </div>
+    
+    <script src="generator.js"></script>
+</body>
+</html>
