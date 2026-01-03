@@ -667,30 +667,55 @@ class AirportGenerator {
     /**
      * Generate ONE primary terminal spine (Terminal Core Zone)
      * This acts as the root for all concourses
+     * Intelligently positioned between parallel runways when space allows
      */
     generatePrimaryTerminal() {
-        // Position terminal perpendicular to average runway angle
-        let terminalOffset = AIRPORT_ZONES.AIRSIDE_CLEARANCE + 300;
-        const terminalAngle = this.getAverageRunwayAngle() + Math.PI / 2;
+        // Detect parallel runways to position terminal between them
+        const parallelPair = this.findParallelRunwayPair();
+        let terminalX, terminalY, angle;
         
-        let terminalX = Math.cos(terminalAngle) * terminalOffset;
-        let terminalY = Math.sin(terminalAngle) * terminalOffset;
-        
-        // Ensure terminal is outside airside zone
-        while (this.isInAirsideZone({ x: terminalX, y: terminalY })) {
-            terminalOffset += 100;
+        if (parallelPair) {
+            // Position terminal in center space between parallel runways
+            const center1 = {
+                x: (parallelPair.rw1.start.x + parallelPair.rw1.end.x) / 2,
+                y: (parallelPair.rw1.start.y + parallelPair.rw1.end.y) / 2
+            };
+            const center2 = {
+                x: (parallelPair.rw2.start.x + parallelPair.rw2.end.x) / 2,
+                y: (parallelPair.rw2.start.y + parallelPair.rw2.end.y) / 2
+            };
+            
+            // Position terminal in the middle between the two runways
+            terminalX = (center1.x + center2.x) / 2;
+            terminalY = (center1.y + center2.y) / 2;
+            
+            // Orient terminal parallel to runways (not perpendicular)
+            angle = Math.atan2(parallelPair.rw1.end.y - parallelPair.rw1.start.y, 
+                              parallelPair.rw1.end.x - parallelPair.rw1.start.x);
+        } else {
+            // Single runway or non-parallel runways: use traditional perpendicular placement
+            let terminalOffset = AIRPORT_ZONES.AIRSIDE_CLEARANCE + 300;
+            const terminalAngle = this.getAverageRunwayAngle() + Math.PI / 2;
+            
             terminalX = Math.cos(terminalAngle) * terminalOffset;
             terminalY = Math.sin(terminalAngle) * terminalOffset;
+            
+            // Ensure terminal is outside airside zone
+            while (this.isInAirsideZone({ x: terminalX, y: terminalY })) {
+                terminalOffset += 100;
+                terminalX = Math.cos(terminalAngle) * terminalOffset;
+                terminalY = Math.sin(terminalAngle) * terminalOffset;
+            }
+            
+            angle = this.getAverageRunwayAngle();
         }
         
         // Create single dominant terminal spine
-        const angle = this.getAverageRunwayAngle();
         const length = 400 + this.config.gateCount * 15; // Scale with gate count
         const width = 120;
         
-        // Determine gate orientation: gates should face TOWARD runway center (apron side)
-        // If terminal is positioned in positive perpendicular direction, gates face negative (toward origin)
-        // Calculate which side faces the runways
+        // Determine gate orientation: gates should face TOWARD nearest taxiway spine
+        // For terminals between runways, gates face inward toward the taxiway corridor
         const vectorToRunway = { x: -terminalX, y: -terminalY };  // Vector from terminal to origin/runway center
         const perpVector = { x: Math.cos(angle + Math.PI / 2), y: Math.sin(angle + Math.PI / 2) };
         // Dot product determines if gates should face +perp or -perp direction
@@ -706,7 +731,7 @@ class AirportGenerator {
             points: [
                 { x: terminalX - dx - perpDx, y: terminalY - dy - perpDy },
                 { x: terminalX + dx - perpDx, y: terminalY + dy - perpDy },
-                { x: terminalX + dx + perpDx, y: terminalY + dy + perpDy },
+                { x: terminalX + dx + perpDx, y: terminalY + dy + perpDx },
                 { x: terminalX - dx + perpDx, y: terminalY - dy + perpDy }
             ],
             center: { x: terminalX, y: terminalY },
@@ -724,6 +749,49 @@ class AirportGenerator {
             width: width + AIRPORT_ZONES.TERMINAL_SPACING,
             angle
         });
+    }
+    
+    /**
+     * Find a pair of parallel runways suitable for placing terminal between them
+     * Returns null if no suitable pair found
+     */
+    findParallelRunwayPair() {
+        const PARALLEL_ANGLE_THRESHOLD = 0.1; // radians (~5.7 degrees)
+        const MIN_SPACING = 400;  // Minimum space between runways to place terminal
+        const MAX_SPACING = 1200; // Maximum space to place terminal (beyond this, place outside)
+        
+        for (let i = 0; i < this.airport.runways.length; i++) {
+            for (let j = i + 1; j < this.airport.runways.length; j++) {
+                const rw1 = this.airport.runways[i];
+                const rw2 = this.airport.runways[j];
+                
+                const angle1 = Math.atan2(rw1.end.y - rw1.start.y, rw1.end.x - rw1.start.x);
+                const angle2 = Math.atan2(rw2.end.y - rw2.start.y, rw2.end.x - rw2.start.x);
+                const angleDiff = Math.abs(this.normalizeAngle(angle1) - this.normalizeAngle(angle2));
+                
+                // Check if runways are parallel
+                if (angleDiff < PARALLEL_ANGLE_THRESHOLD || Math.abs(angleDiff - Math.PI) < PARALLEL_ANGLE_THRESHOLD) {
+                    // Calculate distance between runway centers
+                    const center1 = {
+                        x: (rw1.start.x + rw1.end.x) / 2,
+                        y: (rw1.start.y + rw1.end.y) / 2
+                    };
+                    const center2 = {
+                        x: (rw2.start.x + rw2.end.x) / 2,
+                        y: (rw2.start.y + rw2.end.y) / 2
+                    };
+                    
+                    const spacing = this.distance(center1, center2);
+                    
+                    // Check if spacing is suitable for terminal placement
+                    if (spacing >= MIN_SPACING && spacing <= MAX_SPACING) {
+                        return { rw1, rw2, spacing };
+                    }
+                }
+            }
+        }
+        
+        return null;
     }
     
     /**
@@ -964,10 +1032,13 @@ class AirportGenerator {
     /**
      * Generate runway-parallel taxiway spines
      * One primary full-length taxiway parallel to each runway
-     * With precision coordinate snapping
+     * With strict lateral offsets to prevent overlap between parallel runways
      */
     generateRunwayParallelSpines() {
         const spineOffset = AIRPORT_ZONES.SPINE_LATERAL_OFFSET;
+        
+        // Detect parallel runway pairs to alternate offset directions
+        const runwayGroups = this.groupParallelRunways();
         
         this.airport.runways.forEach((runway, rwIdx) => {
             const runwayAngle = Math.atan2(runway.end.y - runway.start.y, runway.end.x - runway.start.x);
@@ -984,10 +1055,15 @@ class AirportGenerator {
                 y: (runway.start.y + runway.end.y) / 2
             };
             
+            // Determine offset direction to prevent overlap with parallel runways
+            // For parallel runways, alternate between positive and negative offset
+            const offsetDirection = this.getSpineOffsetDirection(rwIdx, runwayGroups);
+            
             // Offset spine perpendicular to runway with precision
+            // Use offsetDirection to alternate left/right for parallel runways
             const spineCenter = {
-                x: Math.round(runwayCenter.x + Math.cos(perpAngle) * spineOffset),
-                y: Math.round(runwayCenter.y + Math.sin(perpAngle) * spineOffset)
+                x: Math.round(runwayCenter.x + Math.cos(perpAngle) * spineOffset * offsetDirection),
+                y: Math.round(runwayCenter.y + Math.sin(perpAngle) * spineOffset * offsetDirection)
             };
             
             // Spine endpoints parallel to runway with precision snapping
@@ -1006,14 +1082,72 @@ class AirportGenerator {
                 path: [spineStart, spineEnd],
                 type: 'spine',
                 runwayIndex: rwIdx,
-                angle: runwayAngle  // Store for connector calculations
+                angle: runwayAngle,  // Store for connector calculations
+                offsetDirection  // Store offset direction for connector alignment
             });
         });
     }
     
     /**
+     * Group parallel runways together to detect which runways need alternating offsets
+     * Returns array of groups where each group contains indices of parallel runways
+     */
+    groupParallelRunways() {
+        const groups = [];
+        const processed = new Set();
+        const PARALLEL_ANGLE_THRESHOLD = 0.1; // radians (~5.7 degrees)
+        
+        this.airport.runways.forEach((runway1, idx1) => {
+            if (processed.has(idx1)) return;
+            
+            const angle1 = Math.atan2(runway1.end.y - runway1.start.y, runway1.end.x - runway1.start.x);
+            const group = [idx1];
+            processed.add(idx1);
+            
+            this.airport.runways.forEach((runway2, idx2) => {
+                if (idx2 <= idx1 || processed.has(idx2)) return;
+                
+                const angle2 = Math.atan2(runway2.end.y - runway2.start.y, runway2.end.x - runway2.start.x);
+                const angleDiff = Math.abs(this.normalizeAngle(angle1) - this.normalizeAngle(angle2));
+                
+                // Check if runways are parallel (same angle or 180 degrees apart)
+                if (angleDiff < PARALLEL_ANGLE_THRESHOLD || Math.abs(angleDiff - Math.PI) < PARALLEL_ANGLE_THRESHOLD) {
+                    group.push(idx2);
+                    processed.add(idx2);
+                }
+            });
+            
+            if (group.length > 1) {
+                groups.push(group);
+            }
+        });
+        
+        return groups;
+    }
+    
+    /**
+     * Get spine offset direction for a runway to prevent overlap
+     * Returns +1 or -1 to alternate offsets for parallel runways
+     */
+    getSpineOffsetDirection(runwayIndex, runwayGroups) {
+        // Find which group this runway belongs to
+        for (const group of runwayGroups) {
+            const indexInGroup = group.indexOf(runwayIndex);
+            if (indexInGroup !== -1) {
+                // Alternate offset direction within parallel group
+                // Even indices: +1 (right), Odd indices: -1 (left)
+                return (indexInGroup % 2 === 0) ? 1 : -1;
+            }
+        }
+        
+        // Not in a parallel group, use default positive offset
+        return 1;
+    }
+    
+    /**
      * Add short perpendicular connectors from taxiway spines to runways
      * With precision alignment and consistent width
+     * Accounts for alternating offset directions to connect correctly
      */
     addRunwayConnectors() {
         const connectorPositions = AIRPORT_ZONES.RUNWAY_CONNECTOR_POSITIONS;
@@ -1023,6 +1157,7 @@ class AirportGenerator {
                 const runway = this.airport.runways[taxiway.runwayIndex];
                 const runwayAngle = Math.atan2(runway.end.y - runway.start.y, runway.end.x - runway.start.x);
                 const perpAngle = runwayAngle + Math.PI / 2;
+                const offsetDirection = taxiway.offsetDirection || 1;  // Use stored offset direction
                 
                 connectorPositions.forEach(t => {
                     // Calculate spine point at position t with EXACT precision
@@ -1038,9 +1173,10 @@ class AirportGenerator {
                     };
                     
                     // Runway edge point - exactly at runway edge (not offset beyond)
+                    // Use offsetDirection to connect to correct side of runway
                     const runwayEdgePoint = {
-                        x: Math.round(runwayPoint.x + Math.cos(perpAngle) * (runway.width / 2)),
-                        y: Math.round(runwayPoint.y + Math.sin(perpAngle) * (runway.width / 2))
+                        x: Math.round(runwayPoint.x + Math.cos(perpAngle) * (runway.width / 2) * offsetDirection),
+                        y: Math.round(runwayPoint.y + Math.sin(perpAngle) * (runway.width / 2) * offsetDirection)
                     };
                     
                     // Create perpendicular connector - exactly from runway edge to spine
