@@ -667,7 +667,7 @@ class AirportGenerator {
     /**
      * Generate ONE primary terminal spine (Terminal Core Zone)
      * This acts as the root for all concourses
-     * Intelligently positioned between parallel runways when space allows
+     * Intelligently positioned between parallel runways when space allows (400-1200px spacing)
      */
     generatePrimaryTerminal() {
         // Detect parallel runways to position terminal between them
@@ -731,7 +731,7 @@ class AirportGenerator {
             points: [
                 { x: terminalX - dx - perpDx, y: terminalY - dy - perpDy },
                 { x: terminalX + dx - perpDx, y: terminalY + dy - perpDy },
-                { x: terminalX + dx + perpDx, y: terminalY + dy + perpDx },
+                { x: terminalX + dx + perpDx, y: terminalY + dy + perpDy },
                 { x: terminalX - dx + perpDx, y: terminalY - dy + perpDy }
             ],
             center: { x: terminalX, y: terminalY },
@@ -1032,7 +1032,8 @@ class AirportGenerator {
     /**
      * Generate runway-parallel taxiway spines
      * One primary full-length taxiway parallel to each runway
-     * With strict lateral offsets to prevent overlap between parallel runways
+     * With strict lateral offsets: alternates between positive and negative offset directions
+     * for parallel runways to prevent overlap
      */
     generateRunwayParallelSpines() {
         const spineOffset = AIRPORT_ZONES.SPINE_LATERAL_OFFSET;
